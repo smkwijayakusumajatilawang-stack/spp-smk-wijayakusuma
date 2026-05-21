@@ -1,0 +1,446 @@
+---
+import AppLayout from "../../layouts/AppLayout.astro";
+---
+
+<AppLayout title="Virtual Akun Bank">
+	<header class="mb-6">
+		<p class="text-sm font-semibold uppercase tracking-[0.15em] text-[var(--brand)]">Transaksi</p>
+		<h2 class="text-2xl font-black sm:text-3xl">Pembayaran Virtual Akun</h2>
+		<p class="mt-1 text-sm text-slate-500">Generate nomor Virtual Akun bank untuk pembayaran SPP otomatis.</p>
+	</header>
+
+	<section class="grid gap-4 lg:grid-cols-[440px_1fr]">
+
+		<!-- Form Buat VA -->
+		<div class="space-y-4">
+			<form id="va-form" class="rounded-xl border border-slate-200 p-4">
+				<h3 class="text-lg font-bold">Buat Virtual Akun</h3>
+				<div class="mt-4 space-y-3">
+					<div>
+						<label class="block text-xs text-slate-500 mb-1">Siswa</label>
+						<select id="f-student" required
+							class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white">
+							<option value="">Pilih siswa</option>
+						</select>
+					</div>
+					<div>
+						<label class="block text-xs text-slate-500 mb-1">Bank</label>
+						<select id="f-bank" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white">
+							<option value="BNI">BNI — Bank Negara Indonesia</option>
+							<option value="BRI">BRI — Bank Rakyat Indonesia</option>
+							<option value="MANDIRI">Mandiri</option>
+							<option value="PERMATA">Permata Bank</option>
+							<option value="BCA">BCA — Bank Central Asia</option>
+						</select>
+					</div>
+				</div>
+
+				<!-- Daftar tagihan siswa -->
+				<div id="invoice-list" class="mt-4">
+					<p class="text-sm text-slate-400">Pilih siswa untuk melihat tagihan.</p>
+				</div>
+
+				<!-- Ringkasan -->
+				<div id="va-summary" class="hidden mt-4 rounded-lg bg-slate-50 p-3 text-sm space-y-1">
+					<div class="flex justify-between">
+						<span class="text-slate-500">Total Tagihan</span>
+						<span id="sum-total" class="font-semibold">Rp 0</span>
+					</div>
+					<div class="flex justify-between">
+						<span class="text-slate-500">Bank</span>
+						<span id="sum-bank" class="font-semibold">—</span>
+					</div>
+				</div>
+
+				<button type="submit" id="btn-create-va"
+					class="mt-4 w-full rounded-lg bg-[var(--brand)] px-4 py-2 font-semibold text-white disabled:opacity-40"
+					disabled>
+					Generate Virtual Akun
+				</button>
+			</form>
+
+			<!-- Informasi cara bayar -->
+			<div id="va-result" class="hidden rounded-xl border-2 border-[var(--brand)] bg-blue-50 p-5">
+				<div class="flex items-center gap-2 mb-3">
+					<svg class="h-5 w-5 text-[var(--brand)]" viewBox="0 0 20 20" fill="currentColor">
+						<path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/>
+						<path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"/>
+					</svg>
+					<h4 class="font-bold text-[var(--brand)]">Virtual Akun Berhasil Dibuat</h4>
+				</div>
+				<div class="space-y-2 text-sm">
+					<div class="flex justify-between">
+						<span class="text-slate-600">Bank</span>
+						<span id="res-bank" class="font-bold"></span>
+					</div>
+					<div id="res-va-block">
+						<div class="flex justify-between items-center">
+							<span class="text-slate-600">No. Virtual Akun</span>
+							<div class="flex items-center gap-1">
+								<span id="res-va-number" class="font-mono text-lg font-black tracking-wider text-[var(--brand)]"></span>
+								<button id="btn-copy-va" title="Salin nomor VA"
+									class="p-1 rounded hover:bg-blue-100 text-slate-400 hover:text-slate-700">
+									<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+										<path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/>
+										<path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/>
+									</svg>
+								</button>
+							</div>
+						</div>
+					</div>
+					<!-- Khusus Mandiri: biller code + bill key -->
+					<div id="res-mandiri-block" class="hidden space-y-1">
+						<div class="flex justify-between">
+							<span class="text-slate-600">Kode Perusahaan</span>
+							<span id="res-biller-code" class="font-mono font-bold text-[var(--brand)]"></span>
+						</div>
+						<div class="flex justify-between">
+							<span class="text-slate-600">Kode Tagihan</span>
+							<span id="res-bill-key" class="font-mono font-bold text-[var(--brand)]"></span>
+						</div>
+					</div>
+					<div class="flex justify-between">
+						<span class="text-slate-600">Total Bayar</span>
+						<span id="res-amount" class="font-bold text-green-700"></span>
+					</div>
+					<div class="flex justify-between">
+						<span class="text-slate-600">Berlaku Hingga</span>
+						<span id="res-expires" class="font-medium text-red-600"></span>
+					</div>
+				</div>
+				<div class="mt-4 rounded-lg bg-white border border-blue-200 p-3 text-xs text-slate-600 leading-relaxed">
+					<strong>Cara Bayar:</strong> Buka aplikasi mobile banking / ATM → Transfer ke Virtual Akun → Masukkan nomor VA di atas → Konfirmasi jumlah → Selesai. Status pembayaran akan diperbarui otomatis.
+				</div>
+				<button id="btn-new-va" class="mt-3 w-full rounded-lg border border-[var(--brand)] px-4 py-2 text-sm font-semibold text-[var(--brand)] hover:bg-blue-100">
+					Buat VA Lain
+				</button>
+			</div>
+		</div>
+
+		<!-- Riwayat VA -->
+		<div class="rounded-xl border border-slate-200 p-4">
+			<div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+				<h3 class="text-lg font-bold">Riwayat Virtual Akun</h3>
+				<div class="flex gap-2">
+					<select id="va-filter-status" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white">
+						<option value="">Semua Status</option>
+						<option value="pending">Menunggu</option>
+						<option value="paid">Lunas</option>
+						<option value="expired">Kedaluwarsa</option>
+						<option value="cancelled">Dibatalkan</option>
+					</select>
+					<button id="btn-refresh" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50">
+						Refresh
+					</button>
+				</div>
+			</div>
+			<div class="overflow-x-auto">
+				<table class="min-w-full text-sm">
+					<thead class="border-b bg-slate-50 text-left text-xs uppercase text-slate-500">
+						<tr>
+							<th class="px-3 py-2">Siswa</th>
+							<th class="px-3 py-2">Bank</th>
+							<th class="px-3 py-2">No. VA / Kode</th>
+							<th class="px-3 py-2">Nominal</th>
+							<th class="px-3 py-2">Berlaku</th>
+							<th class="px-3 py-2">Status</th>
+							<th class="px-3 py-2">Aksi</th>
+						</tr>
+					</thead>
+					<tbody id="va-body">
+						<tr><td class="px-3 py-3 text-slate-400" colspan="7">Memuat data...</td></tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</section>
+
+	<script>
+		import { createClient } from "@supabase/supabase-js";
+
+		const supabase = createClient(
+			import.meta.env.PUBLIC_SUPABASE_URL,
+			import.meta.env.PUBLIC_SUPABASE_ANON_KEY,
+		);
+		const idr = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
+
+		const { data: { session } } = await supabase.auth.getSession();
+		if (!session) { window.location.href = "/login"; throw new Error(); }
+
+		// ─── Elements ─────────────────────────────────────────────────────────
+		const studentEl = document.getElementById("f-student") as HTMLSelectElement;
+		const bankEl = document.getElementById("f-bank") as HTMLSelectElement;
+		const invoiceList = document.getElementById("invoice-list")!;
+		const vaSummary = document.getElementById("va-summary")!;
+		const btnCreate = document.getElementById("btn-create-va") as HTMLButtonElement;
+		const vaResult = document.getElementById("va-result")!;
+		const vaForm = document.getElementById("va-form") as HTMLFormElement;
+		const vaBody = document.getElementById("va-body")!;
+
+		const VA_STATUS_BADGE: Record<string, string> = {
+			pending: "bg-amber-100 text-amber-700",
+			paid: "bg-green-100 text-green-700",
+			expired: "bg-slate-100 text-slate-500",
+			cancelled: "bg-red-100 text-red-600",
+		};
+		const VA_STATUS_LABEL: Record<string, string> = {
+			pending: "Menunggu", paid: "Lunas", expired: "Kedaluwarsa", cancelled: "Dibatalkan",
+		};
+
+		// ─── Load students ─────────────────────────────────────────────────────
+		async function loadStudents() {
+			const { data } = await supabase.from("students").select("id,name").order("name");
+			studentEl.innerHTML = '<option value="">Pilih siswa</option>' +
+				(data || []).map((s) => `<option value="${s.id}">${s.name}</option>`).join("");
+		}
+
+		// ─── Load invoices for student ────────────────────────────────────────
+		async function loadInvoices(studentId: string) {
+			if (!studentId) {
+				invoiceList.innerHTML = `<p class="text-sm text-slate-400">Pilih siswa untuk melihat tagihan.</p>`;
+				vaSummary.classList.add("hidden");
+				btnCreate.disabled = true;
+				return;
+			}
+
+			const { data, error } = await supabase
+				.from("invoices")
+				.select("id,total_amount,paid_amount,components(name),billing_periods(name)")
+				.eq("student_id", studentId)
+				.in("status", ["draft", "posted"])
+				.order("created_at", { ascending: true });
+
+			if (error) return alert(error.message);
+
+			if (!data?.length) {
+				invoiceList.innerHTML = `<p class="text-sm text-slate-400">Tidak ada tagihan aktif untuk siswa ini.</p>`;
+				vaSummary.classList.add("hidden");
+				btnCreate.disabled = true;
+				return;
+			}
+
+			invoiceList.innerHTML = `
+				<p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Pilih Tagihan</p>
+				${data.map((inv) => {
+					const due = Number(inv.total_amount || 0) - Number(inv.paid_amount || 0);
+					return `<label class="flex items-start gap-2 rounded-lg border border-slate-200 p-3 cursor-pointer hover:bg-slate-50 mb-2">
+						<input type="checkbox" data-role="inv-check" value="${inv.id}" data-amount="${due}" class="mt-0.5" />
+						<div class="flex-1 min-w-0">
+							<p class="text-sm font-medium">${inv.components?.name ?? "-"} — ${inv.billing_periods?.name ?? "-"}</p>
+							<p class="text-xs text-slate-500">Sisa: <strong>${idr.format(due)}</strong></p>
+						</div>
+					</label>`;
+				}).join("")}`;
+
+			invoiceList.addEventListener("change", updateSummary);
+			updateSummary();
+		}
+
+		function updateSummary() {
+			const checked = [...document.querySelectorAll('input[data-role="inv-check"]:checked')] as HTMLInputElement[];
+			const total = checked.reduce((sum, el) => sum + Number(el.dataset.amount || 0), 0);
+			const bankCode = bankEl.value;
+
+			if (checked.length > 0) {
+				document.getElementById("sum-total")!.textContent = idr.format(total);
+				document.getElementById("sum-bank")!.textContent = bankCode;
+				vaSummary.classList.remove("hidden");
+				btnCreate.disabled = false;
+			} else {
+				vaSummary.classList.add("hidden");
+				btnCreate.disabled = true;
+			}
+		}
+
+		bankEl.addEventListener("change", updateSummary);
+		studentEl.addEventListener("change", () => loadInvoices(studentEl.value));
+
+		// ─── Submit: create VA ────────────────────────────────────────────────
+		vaForm.addEventListener("submit", async (e) => {
+			e.preventDefault();
+			const studentId = studentEl.value;
+			const bankCode = bankEl.value;
+			const checkedInvoices = [...document.querySelectorAll('input[data-role="inv-check"]:checked')] as HTMLInputElement[];
+			if (!checkedInvoices.length) return alert("Pilih minimal 1 tagihan.");
+
+			const totalAmount = checkedInvoices.reduce((sum, el) => sum + Number(el.dataset.amount || 0), 0);
+			const invoiceIds = checkedInvoices.map((el) => el.value);
+
+			btnCreate.disabled = true;
+			btnCreate.textContent = "Memproses...";
+
+			try {
+				const res = await fetch("/api/va/create", {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						"Authorization": `Bearer ${session!.access_token}`,
+					},
+					body: JSON.stringify({
+						student_id: studentId,
+						invoice_ids: invoiceIds,
+						bank_code: bankCode,
+						amount: totalAmount,
+						student_name: studentEl.options[studentEl.selectedIndex].text,
+					}),
+				});
+
+				let result: any;
+				const contentType = res.headers.get("content-type") ?? "";
+				if (contentType.includes("application/json")) {
+					result = await res.json();
+				} else {
+					const text = await res.text();
+					throw new Error(`Server error (${res.status}): ${text.replace(/<[^>]+>/g, "").trim().slice(0, 200)}`);
+				}
+				if (!res.ok) throw new Error(result.error || "Gagal membuat Virtual Akun.");
+
+				// Tampilkan hasil
+				document.getElementById("res-bank")!.textContent = result.bank_code;
+				document.getElementById("res-amount")!.textContent = idr.format(result.amount);
+
+				const expiresDate = new Date(result.expires_at);
+				document.getElementById("res-expires")!.textContent =
+					expiresDate.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) +
+					" " + expiresDate.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+
+				if (result.bank_code === "MANDIRI") {
+					document.getElementById("res-va-block")?.classList.add("hidden");
+					document.getElementById("res-mandiri-block")?.classList.remove("hidden");
+					document.getElementById("res-biller-code")!.textContent = result.biller_code ?? "-";
+					document.getElementById("res-bill-key")!.textContent = result.bill_key ?? "-";
+				} else {
+					document.getElementById("res-va-block")?.classList.remove("hidden");
+					document.getElementById("res-mandiri-block")?.classList.add("hidden");
+					document.getElementById("res-va-number")!.textContent = result.va_number ?? "-";
+				}
+
+				vaForm.classList.add("hidden");
+				vaResult.classList.remove("hidden");
+				await loadVaHistory();
+			} catch (err: any) {
+				alert(err.message);
+			} finally {
+				btnCreate.disabled = false;
+				btnCreate.textContent = "Generate Virtual Akun";
+			}
+		});
+
+		// Copy VA number
+		document.getElementById("btn-copy-va")?.addEventListener("click", () => {
+			const vaNum = document.getElementById("res-va-number")!.textContent ?? "";
+			navigator.clipboard.writeText(vaNum).then(() => {
+				const btn = document.getElementById("btn-copy-va")!;
+				btn.title = "Tersalin!";
+				setTimeout(() => { btn.title = "Salin nomor VA"; }, 2000);
+			});
+		});
+
+		// Reset form
+		document.getElementById("btn-new-va")?.addEventListener("click", () => {
+			vaForm.reset();
+			vaForm.classList.remove("hidden");
+			vaResult.classList.add("hidden");
+			invoiceList.innerHTML = `<p class="text-sm text-slate-400">Pilih siswa untuk melihat tagihan.</p>`;
+			vaSummary.classList.add("hidden");
+			btnCreate.disabled = true;
+		});
+
+		// ─── Load VA history ──────────────────────────────────────────────────
+		async function loadVaHistory() {
+			const statusFilter = (document.getElementById("va-filter-status") as HTMLSelectElement).value;
+
+			let query = supabase
+				.from("virtual_accounts")
+				.select("id,bank_code,va_number,bill_key,biller_code,amount,status,expires_at,paid_at,students(name)")
+				.order("created_at", { ascending: false })
+				.limit(100);
+
+			if (statusFilter) query = query.eq("status", statusFilter);
+
+			const { data, error } = await query;
+			if (error) {
+				vaBody.innerHTML = `<tr><td class="px-3 py-3 text-red-600" colspan="7">${error.message}</td></tr>`;
+				return;
+			}
+
+			if (!data?.length) {
+				vaBody.innerHTML = `<tr><td class="px-3 py-3 text-slate-400" colspan="7">Belum ada data Virtual Akun.</td></tr>`;
+				return;
+			}
+
+			vaBody.innerHTML = (data || []).map((va) => {
+				const badge = VA_STATUS_BADGE[va.status] ?? "bg-slate-100 text-slate-600";
+				const label = VA_STATUS_LABEL[va.status] ?? va.status;
+
+				let vaDisplay = "";
+				if (va.bank_code === "MANDIRI") {
+					vaDisplay = `<span class="text-xs text-slate-500">Kode: </span><span class="font-mono">${va.biller_code ?? "-"}</span><br/>
+						<span class="text-xs text-slate-500">Tagihan: </span><span class="font-mono">${va.bill_key ?? "-"}</span>`;
+				} else {
+					vaDisplay = `<span class="font-mono">${va.va_number ?? "-"}</span>`;
+				}
+
+				const expires = va.expires_at
+					? new Date(va.expires_at).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })
+					: "-";
+
+				return `<tr class="border-b">
+					<td class="px-3 py-2">${va.students?.name ?? "-"}</td>
+					<td class="px-3 py-2 font-semibold">${va.bank_code}</td>
+					<td class="px-3 py-2 text-sm leading-relaxed">${vaDisplay}</td>
+					<td class="px-3 py-2">${idr.format(Number(va.amount || 0))}</td>
+					<td class="px-3 py-2 text-xs text-slate-500">${expires}</td>
+					<td class="px-3 py-2">
+						<span class="rounded-full px-2 py-0.5 text-xs font-medium ${badge}">${label}</span>
+					</td>
+					<td class="px-3 py-2">
+						${va.status === "pending"
+							? `<button data-id="${va.id}" data-action="mark-paid"
+								class="rounded-lg border border-green-200 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-50">
+								Tandai Lunas
+							</button>
+							<button data-id="${va.id}" data-action="cancel-va"
+								class="ml-1 rounded-lg border border-red-200 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50">
+								Batalkan
+							</button>`
+							: '<span class="text-xs text-slate-400">—</span>'}
+					</td>
+				</tr>`;
+			}).join("");
+		}
+
+		vaBody.addEventListener("click", async (e) => {
+			const btn = (e.target as HTMLElement).closest("button[data-action]") as HTMLButtonElement | null;
+			if (!btn) return;
+			const { id, action } = btn.dataset;
+
+			if (action === "mark-paid") {
+				if (!confirm("Tandai VA ini sebagai LUNAS? Pembayaran manual akan dicatat.")) return;
+				const { error } = await supabase
+					.from("virtual_accounts")
+					.update({ status: "paid", paid_at: new Date().toISOString() })
+					.eq("id", id!);
+				if (error) return alert(error.message);
+				await loadVaHistory();
+			}
+
+			if (action === "cancel-va") {
+				if (!confirm("Batalkan Virtual Akun ini?")) return;
+				const { error } = await supabase
+					.from("virtual_accounts")
+					.update({ status: "cancelled" })
+					.eq("id", id!);
+				if (error) return alert(error.message);
+				await loadVaHistory();
+			}
+		});
+
+		document.getElementById("va-filter-status")?.addEventListener("change", loadVaHistory);
+		document.getElementById("btn-refresh")?.addEventListener("click", loadVaHistory);
+
+		// ─── Init ────────────────────────────────────────────────────────────
+		await loadStudents();
+		await loadVaHistory();
+	</script>
+</AppLayout>

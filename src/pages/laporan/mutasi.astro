@@ -1,0 +1,381 @@
+---
+import AppLayout from "../../layouts/AppLayout.astro";
+---
+
+<AppLayout title="Mutasi Pembayaran">
+	<header class="mb-6 flex flex-wrap items-end justify-between gap-3">
+		<div>
+			<p class="text-sm font-semibold uppercase tracking-[0.15em] text-[var(--brand)]">Laporan</p>
+			<h2 class="text-2xl font-black sm:text-3xl">Mutasi Pembayaran</h2>
+			<p class="mt-1 text-sm text-slate-500">Riwayat seluruh transaksi pembayaran yang masuk.</p>
+		</div>
+		<button onclick="window.print()"
+			class="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold hover:bg-slate-50 transition print:hidden">
+			<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+				<path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a1 1 0 001 1h8a1 1 0 001-1v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9H6v2h8v-2h-1a1 1 0 01-1-1V9H8v3a1 1 0 01-1 1z" clip-rule="evenodd"/>
+			</svg>
+			Cetak / Export PDF
+		</button>
+	</header>
+
+	<!-- KPI Cards -->
+	<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-5">
+		<article class="rounded-xl border border-slate-200 p-4">
+			<p class="text-xs uppercase tracking-[0.12em] text-slate-500">Jumlah Transaksi</p>
+			<p id="kpi-count" class="mt-2 text-2xl font-black text-[var(--ink)]">—</p>
+			<p id="kpi-periode" class="text-xs text-slate-400 mt-0.5"></p>
+		</article>
+		<article class="rounded-xl border border-slate-200 p-4">
+			<p class="text-xs uppercase tracking-[0.12em] text-slate-500">Total Diterima</p>
+			<p id="kpi-total" class="mt-2 text-2xl font-black text-green-600">—</p>
+			<p class="text-xs text-slate-400 mt-0.5">uang masuk bersih</p>
+		</article>
+		<article class="rounded-xl border border-slate-200 p-4">
+			<p class="text-xs uppercase tracking-[0.12em] text-slate-500">Sisa Belum Lunas</p>
+			<p id="kpi-due" class="mt-2 text-2xl font-black text-amber-500">—</p>
+			<p class="text-xs text-slate-400 mt-0.5">dari transaksi di rentang ini</p>
+		</article>
+		<article class="rounded-xl border border-slate-200 p-4">
+			<p class="text-xs uppercase tracking-[0.12em] text-slate-500">Transaksi Lunas</p>
+			<p id="kpi-lunas" class="mt-2 text-2xl font-black text-[var(--brand)]">—</p>
+			<p class="text-xs text-slate-400 mt-0.5">dari total transaksi</p>
+		</article>
+	</div>
+
+	<!-- Filter -->
+	<div class="flex flex-wrap items-end gap-3 mb-4 print:hidden">
+		<div>
+			<label class="block text-xs text-slate-500 mb-1">Dari Tanggal</label>
+			<input type="date" id="f-dari"
+				class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white" />
+		</div>
+		<div>
+			<label class="block text-xs text-slate-500 mb-1">Sampai Tanggal</label>
+			<input type="date" id="f-sampai"
+				class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white" />
+		</div>
+		<div>
+			<label class="block text-xs text-slate-500 mb-1">Siswa</label>
+			<select id="f-siswa" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white min-w-[180px]">
+				<option value="">Semua Siswa</option>
+			</select>
+		</div>
+		<div>
+			<label class="block text-xs text-slate-500 mb-1">Status</label>
+			<select id="f-status" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white">
+				<option value="">Semua Status</option>
+				<option value="partial">Sebagian</option>
+				<option value="paid">Lunas</option>
+				<option value="draft">Draft</option>
+			</select>
+		</div>
+		<button id="btn-filter"
+			class="rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition">
+			Terapkan Filter
+		</button>
+		<button id="btn-reset"
+			class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold hover:bg-slate-50 transition">
+			Reset
+		</button>
+	</div>
+
+	<!-- Tabel Mutasi -->
+	<div class="rounded-xl border border-slate-200 overflow-x-auto">
+		<table class="min-w-full text-sm">
+			<thead class="border-b bg-slate-50 text-left text-xs uppercase text-slate-500">
+				<tr>
+					<th class="px-3 py-2">Tgl Bayar</th>
+					<th class="px-3 py-2">No. Transaksi</th>
+					<th class="px-3 py-2">Siswa</th>
+					<th class="px-3 py-2 text-right">Total Tagihan</th>
+					<th class="px-3 py-2 text-right">Dibayar</th>
+					<th class="px-3 py-2 text-right">Sisa</th>
+					<th class="px-3 py-2">Status</th>
+					<th class="px-3 py-2 print:hidden">Aksi</th>
+				</tr>
+			</thead>
+			<tbody id="mutasi-body">
+				<tr><td colspan="8" class="px-3 py-6 text-center text-slate-400">Memuat data...</td></tr>
+			</tbody>
+			<tfoot id="mutasi-footer" class="hidden border-t bg-slate-50 font-semibold text-sm">
+				<tr>
+					<td colspan="3" class="px-3 py-2 text-slate-600">Total</td>
+					<td id="foot-total" class="px-3 py-2 text-right"></td>
+					<td id="foot-paid" class="px-3 py-2 text-right text-green-700"></td>
+					<td id="foot-due" class="px-3 py-2 text-right text-amber-600"></td>
+					<td colspan="2" class="px-3 py-2"></td>
+				</tr>
+			</tfoot>
+		</table>
+	</div>
+
+	<!-- Modal Detail Transaksi -->
+	<div id="modal-detail" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+		<div class="w-full max-w-lg rounded-2xl bg-white shadow-xl overflow-hidden">
+			<div class="flex items-center justify-between border-b px-5 py-4">
+				<h3 class="font-bold text-base" id="modal-title">Detail Transaksi</h3>
+				<button id="modal-close" class="rounded-lg p-1.5 hover:bg-slate-100 transition text-slate-500">✕</button>
+			</div>
+			<div id="modal-body" class="p-5 space-y-4 text-sm max-h-[70vh] overflow-y-auto">
+				<p class="text-slate-400">Memuat...</p>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		import { createClient } from "@supabase/supabase-js";
+
+		const supabase = createClient(
+			import.meta.env.PUBLIC_SUPABASE_URL,
+			import.meta.env.PUBLIC_SUPABASE_ANON_KEY,
+		);
+		const idr = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
+
+		const fDari = document.getElementById("f-dari") as HTMLInputElement;
+		const fSampai = document.getElementById("f-sampai") as HTMLInputElement;
+		const fSiswa = document.getElementById("f-siswa") as HTMLSelectElement;
+		const fStatus = document.getElementById("f-status") as HTMLSelectElement;
+		const mutasiBody = document.getElementById("mutasi-body") as HTMLElement;
+		const mutasiFooter = document.getElementById("mutasi-footer") as HTMLElement;
+		const modalDetail = document.getElementById("modal-detail") as HTMLElement;
+		const modalTitle = document.getElementById("modal-title") as HTMLElement;
+		const modalBody = document.getElementById("modal-body") as HTMLElement;
+
+		const STATE_BADGE: Record<string, string> = {
+			draft: "bg-slate-100 text-slate-600",
+			partial: "bg-amber-100 text-amber-700",
+			paid: "bg-green-100 text-green-700",
+			done: "bg-blue-100 text-blue-700",
+		};
+		const STATE_LABEL: Record<string, string> = {
+			draft: "Draft", partial: "Sebagian", paid: "Lunas", done: "Selesai",
+		};
+
+		// Default filter: bulan berjalan
+		const today = new Date();
+		const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+		fDari.value = firstDay.toISOString().slice(0, 10);
+		fSampai.value = today.toISOString().slice(0, 10);
+
+		function formatDate(str: string) {
+			if (!str) return "—";
+			return new Date(str).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+		}
+
+		async function loadSiswa() {
+			const { data } = await supabase.from("students").select("id,name").order("name");
+			fSiswa.innerHTML =
+				'<option value="">Semua Siswa</option>' +
+				(data || []).map((s) => `<option value="${s.id}">${s.name}</option>`).join("");
+		}
+
+		async function loadMutasi() {
+			mutasiBody.innerHTML = `<tr><td colspan="8" class="px-3 py-6 text-center text-slate-400">Memuat...</td></tr>`;
+			mutasiFooter.classList.add("hidden");
+
+			let query = supabase
+				.from("payments")
+				.select("id,payment_no,payment_date,state,amount_total,amount_paid,amount_due,created_at,students(name)")
+				.eq("is_voided", false)
+				.order("payment_date", { ascending: false })
+				.order("created_at", { ascending: false });
+
+			if (fDari.value) query = query.gte("payment_date", fDari.value);
+			if (fSampai.value) query = query.lte("payment_date", fSampai.value);
+			if (fSiswa.value) query = query.eq("student_id", fSiswa.value);
+			if (fStatus.value) query = query.eq("state", fStatus.value);
+
+			const { data, error } = await query;
+
+			if (error) {
+				mutasiBody.innerHTML = `<tr><td colspan="8" class="px-3 py-3 text-red-600">${error.message}</td></tr>`;
+				return;
+			}
+
+			if (!data?.length) {
+				mutasiBody.innerHTML = `<tr><td colspan="8" class="px-3 py-6 text-center text-slate-400">Tidak ada data untuk filter yang dipilih.</td></tr>`;
+				updateKPI([], fDari.value, fSampai.value);
+				return;
+			}
+
+			mutasiBody.innerHTML = data.map((p) => {
+				const badge = STATE_BADGE[p.state] ?? "bg-slate-100 text-slate-600";
+				const label = STATE_LABEL[p.state] ?? p.state;
+				const payNo = p.payment_no ?? p.id.slice(0, 8).toUpperCase();
+				return `<tr class="border-b hover:bg-slate-50 transition-colors">
+					<td class="px-3 py-2 whitespace-nowrap">${formatDate(p.payment_date)}</td>
+					<td class="px-3 py-2 font-mono text-xs text-slate-500">${payNo}</td>
+					<td class="px-3 py-2 font-medium">${(p.students as any)?.name ?? "—"}</td>
+					<td class="px-3 py-2 text-right">${idr.format(Number(p.amount_total || 0))}</td>
+					<td class="px-3 py-2 text-right text-green-700 font-semibold">${idr.format(Number(p.amount_paid || 0))}</td>
+					<td class="px-3 py-2 text-right text-amber-600">${idr.format(Number(p.amount_due || 0))}</td>
+					<td class="px-3 py-2">
+						<span class="rounded-full px-2 py-0.5 text-xs font-medium ${badge}">${label}</span>
+					</td>
+					<td class="px-3 py-2 print:hidden">
+						<button data-action="detail" data-id="${p.id}"
+							class="text-xs text-[var(--brand)] hover:underline font-medium">Detail</button>
+					</td>
+				</tr>`;
+			}).join("");
+
+			// Footer total
+			const totTotal = data.reduce((s, p) => s + Number(p.amount_total || 0), 0);
+			const totPaid = data.reduce((s, p) => s + Number(p.amount_paid || 0), 0);
+			const totDue = data.reduce((s, p) => s + Number(p.amount_due || 0), 0);
+			(document.getElementById("foot-total") as HTMLElement).textContent = idr.format(totTotal);
+			(document.getElementById("foot-paid") as HTMLElement).textContent = idr.format(totPaid);
+			(document.getElementById("foot-due") as HTMLElement).textContent = idr.format(totDue);
+			mutasiFooter.classList.remove("hidden");
+
+			updateKPI(data, fDari.value, fSampai.value);
+		}
+
+		function updateKPI(data: any[], dari: string, sampai: string) {
+			const count = data.length;
+			const totPaid = data.reduce((s, p) => s + Number(p.amount_paid || 0), 0);
+			const totDue = data.reduce((s, p) => s + Number(p.amount_due || 0), 0);
+			const lunas = data.filter((p) => p.state === "paid" || p.state === "done").length;
+
+			(document.getElementById("kpi-count") as HTMLElement).textContent = count.toString();
+			(document.getElementById("kpi-total") as HTMLElement).textContent = idr.format(totPaid);
+			(document.getElementById("kpi-due") as HTMLElement).textContent = idr.format(totDue);
+			(document.getElementById("kpi-lunas") as HTMLElement).textContent =
+				count === 0 ? "0" : `${lunas} / ${count}`;
+
+			const periodeEl = document.getElementById("kpi-periode") as HTMLElement;
+			if (dari && sampai) {
+				periodeEl.textContent = `${formatDate(dari)} — ${formatDate(sampai)}`;
+			} else {
+				periodeEl.textContent = "Semua periode";
+			}
+		}
+
+		async function loadDetail(paymentId: string) {
+			modalBody.innerHTML = `<p class="text-slate-400">Memuat...</p>`;
+			modalDetail.classList.remove("hidden");
+			document.body.style.overflow = "hidden";
+
+			const { data: payment } = await supabase
+				.from("payments")
+				.select("payment_no,payment_date,state,amount_total,amount_paid,amount_due,created_at,students(name,nis)")
+				.eq("id", paymentId)
+				.single();
+
+			const { data: lines } = await supabase
+				.from("payment_lines")
+				.select("amount_total,amount_paid,amount_residual,invoices(components(name),billing_periods(name),paid_off_at)")
+				.eq("payment_id", paymentId);
+
+			if (!payment) {
+				modalBody.innerHTML = `<p class="text-red-500">Data tidak ditemukan.</p>`;
+				return;
+			}
+
+			const student = payment.students as any;
+			const badge = STATE_BADGE[payment.state] ?? "bg-slate-100 text-slate-600";
+			const label = STATE_LABEL[payment.state] ?? payment.state;
+
+			modalTitle.textContent = `Transaksi ${payment.payment_no ?? paymentId.slice(0, 8)}`;
+
+			modalBody.innerHTML = `
+				<div class="grid grid-cols-2 gap-2 text-sm">
+					<div>
+						<p class="text-xs text-slate-500">Siswa</p>
+						<p class="font-semibold">${student?.name ?? "—"}</p>
+						${student?.nis ? `<p class="text-xs text-slate-400">NIS: ${student.nis}</p>` : ""}
+					</div>
+					<div>
+						<p class="text-xs text-slate-500">Tanggal Bayar</p>
+						<p class="font-semibold">${formatDate(payment.payment_date)}</p>
+					</div>
+					<div>
+						<p class="text-xs text-slate-500">Status</p>
+						<span class="rounded-full px-2 py-0.5 text-xs font-medium ${badge}">${label}</span>
+					</div>
+					<div>
+						<p class="text-xs text-slate-500">Dicatat pada</p>
+						<p class="text-xs">${new Date(payment.created_at).toLocaleString("id-ID")}</p>
+					</div>
+				</div>
+
+				<div class="rounded-lg border border-slate-200 overflow-hidden">
+					<table class="min-w-full text-sm">
+						<thead class="bg-slate-50 text-xs uppercase text-slate-500 border-b">
+							<tr>
+								<th class="px-3 py-2 text-left">Komponen / Periode</th>
+								<th class="px-3 py-2 text-right">Tagihan</th>
+								<th class="px-3 py-2 text-right">Dibayar</th>
+								<th class="px-3 py-2 text-right">Sisa</th>
+								<th class="px-3 py-2 text-left">Tgl Lunas</th>
+							</tr>
+						</thead>
+						<tbody>
+							${(lines || []).map((l) => {
+								const inv = l.invoices as any;
+								const paidOff = inv?.paid_off_at
+									? new Date(inv.paid_off_at).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })
+									: "—";
+								return `<tr class="border-b">
+									<td class="px-3 py-2">
+										<p class="font-medium">${inv?.components?.name ?? "—"}</p>
+										<p class="text-xs text-slate-400">${inv?.billing_periods?.name ?? "—"}</p>
+									</td>
+									<td class="px-3 py-2 text-right">${idr.format(Number(l.amount_total || 0))}</td>
+									<td class="px-3 py-2 text-right text-green-700">${idr.format(Number(l.amount_paid || 0))}</td>
+									<td class="px-3 py-2 text-right text-amber-600">${idr.format(Number(l.amount_residual || 0))}</td>
+									<td class="px-3 py-2 text-xs">${paidOff}</td>
+								</tr>`;
+							}).join("")}
+						</tbody>
+					</table>
+				</div>
+
+				<div class="rounded-lg bg-slate-50 p-3 text-sm space-y-1">
+					<div class="flex justify-between">
+						<span class="text-slate-500">Total Tagihan</span>
+						<span class="font-semibold">${idr.format(Number(payment.amount_total || 0))}</span>
+					</div>
+					<div class="flex justify-between">
+						<span class="text-slate-500">Dibayar</span>
+						<span class="font-semibold text-green-700">${idr.format(Number(payment.amount_paid || 0))}</span>
+					</div>
+					<div class="flex justify-between border-t pt-1">
+						<span class="text-slate-500">Sisa</span>
+						<span class="font-semibold text-amber-600">${idr.format(Number(payment.amount_due || 0))}</span>
+					</div>
+				</div>
+			`;
+		}
+
+		// Event delegation untuk tombol detail di tabel
+		mutasiBody.addEventListener("click", (e) => {
+			const btn = (e.target as HTMLElement).closest("button[data-action='detail']") as HTMLButtonElement | null;
+			if (btn?.dataset.id) loadDetail(btn.dataset.id);
+		});
+
+		// Modal close
+		document.getElementById("modal-close")?.addEventListener("click", () => {
+			modalDetail.classList.add("hidden");
+			document.body.style.overflow = "";
+		});
+		modalDetail.addEventListener("click", (e) => {
+			if (e.target === modalDetail) {
+				modalDetail.classList.add("hidden");
+				document.body.style.overflow = "";
+			}
+		});
+
+		// Filter
+		document.getElementById("btn-filter")?.addEventListener("click", loadMutasi);
+		document.getElementById("btn-reset")?.addEventListener("click", () => {
+			fDari.value = firstDay.toISOString().slice(0, 10);
+			fSampai.value = today.toISOString().slice(0, 10);
+			fSiswa.value = "";
+			fStatus.value = "";
+			loadMutasi();
+		});
+
+		await Promise.all([loadSiswa(), loadMutasi()]);
+	</script>
+</AppLayout>

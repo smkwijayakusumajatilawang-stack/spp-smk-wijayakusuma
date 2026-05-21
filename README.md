@@ -72,3 +72,6 @@ App jalan di `http://localhost:4321`.
 - Invoice unik per kombinasi `student + component + period`.
 - Status pembayaran flow: `draft -> partial -> paid` (dan tabel `payments` juga support `done`).
 - Pembayaran akan update `paid_amount` dan `status` di tabel `invoices`.
+
+## Akun Supabase
+dpsbantenraya@gmail.com

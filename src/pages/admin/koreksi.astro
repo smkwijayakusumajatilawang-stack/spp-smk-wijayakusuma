@@ -1,0 +1,554 @@
+---
+import AppLayout from "../../layouts/AppLayout.astro";
+---
+
+<AppLayout title="Koreksi Data">
+	<header class="mb-6">
+		<p class="text-sm font-semibold uppercase tracking-[0.15em] text-[var(--brand)]">Administrator</p>
+		<h2 class="text-2xl font-black sm:text-3xl">Koreksi Data</h2>
+		<p class="mt-1 text-sm text-slate-500">Void pembayaran, koreksi tagihan, dan lihat jejak audit.</p>
+	</header>
+
+	<!-- Guard -->
+	<div id="access-denied" class="hidden rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+		<p class="font-semibold text-red-700">Akses ditolak — halaman ini hanya untuk Administrator.</p>
+		<a href="/" class="mt-3 inline-block text-sm text-red-600 underline">Kembali ke Dashboard</a>
+	</div>
+
+	<div id="page-content" class="hidden space-y-6">
+
+		<!-- Tab Navigation -->
+		<div class="flex gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1 w-fit">
+			<button data-tab="pembayaran" class="tab-btn rounded-lg px-4 py-2 text-sm font-semibold bg-white shadow text-[var(--brand)]">
+				Pembayaran
+			</button>
+			<button data-tab="tagihan" class="tab-btn rounded-lg px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-700">
+				Tagihan
+			</button>
+			<button data-tab="audit" class="tab-btn rounded-lg px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-700">
+				Log Audit
+			</button>
+		</div>
+
+		<!-- ── TAB: PEMBAYARAN ──────────────────────────────────────────────── -->
+		<div id="tab-pembayaran">
+			<div class="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 mb-4 text-sm text-amber-800">
+				<strong>Perhatian:</strong> Void pembayaran akan membatalkan pembayaran dan mengembalikan status tagihan. Tindakan ini dicatat di log audit.
+			</div>
+			<div class="flex flex-wrap gap-2 mb-3">
+				<select id="pay-filter-student" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white">
+					<option value="">Semua Siswa</option>
+				</select>
+				<select id="pay-filter-status" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white">
+					<option value="">Semua Status</option>
+					<option value="active">Aktif</option>
+					<option value="voided">Sudah Divoid</option>
+				</select>
+			</div>
+			<div class="overflow-x-auto rounded-xl border border-slate-200">
+				<table class="min-w-full text-sm">
+					<thead class="border-b bg-slate-50 text-left text-xs uppercase text-slate-500">
+						<tr>
+							<th class="px-3 py-2">No. Pembayaran</th>
+							<th class="px-3 py-2">Tanggal</th>
+							<th class="px-3 py-2">Siswa</th>
+							<th class="px-3 py-2">Total Dibayar</th>
+							<th class="px-3 py-2">Status</th>
+							<th class="px-3 py-2">Aksi</th>
+						</tr>
+					</thead>
+					<tbody id="payments-body">
+						<tr><td class="px-3 py-3 text-slate-400" colspan="6">Memuat data...</td></tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+
+		<!-- ── TAB: TAGIHAN ─────────────────────────────────────────────────── -->
+		<div id="tab-tagihan" class="hidden">
+			<div class="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 mb-4 text-sm text-blue-800">
+				<strong>Koreksi Tagihan:</strong> Admin dapat mengubah nominal tagihan, termasuk yang sudah berstatus "Lunas". Perubahan dicatat di log audit.
+			</div>
+			<div class="flex flex-wrap gap-2 mb-3">
+				<select id="inv-filter-student" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white">
+					<option value="">Semua Siswa</option>
+				</select>
+				<select id="inv-filter-status" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white">
+					<option value="">Semua Status</option>
+					<option value="draft">Draft</option>
+					<option value="posted">Ditagih</option>
+					<option value="paid">Lunas</option>
+					<option value="cancelled">Dibatalkan</option>
+				</select>
+			</div>
+			<div class="overflow-x-auto rounded-xl border border-slate-200">
+				<table class="min-w-full text-sm">
+					<thead class="border-b bg-slate-50 text-left text-xs uppercase text-slate-500">
+						<tr>
+							<th class="px-3 py-2">Siswa</th>
+							<th class="px-3 py-2">Komponen</th>
+							<th class="px-3 py-2">Periode</th>
+							<th class="px-3 py-2">Total</th>
+							<th class="px-3 py-2">Terbayar</th>
+							<th class="px-3 py-2">Status</th>
+							<th class="px-3 py-2">Aksi</th>
+						</tr>
+					</thead>
+					<tbody id="invoices-body">
+						<tr><td class="px-3 py-3 text-slate-400" colspan="7">Memuat data...</td></tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+
+		<!-- ── TAB: AUDIT ────────────────────────────────────────────────────── -->
+		<div id="tab-audit" class="hidden">
+			<div class="overflow-x-auto rounded-xl border border-slate-200">
+				<table class="min-w-full text-sm">
+					<thead class="border-b bg-slate-50 text-left text-xs uppercase text-slate-500">
+						<tr>
+							<th class="px-3 py-2">Waktu</th>
+							<th class="px-3 py-2">Pengguna</th>
+							<th class="px-3 py-2">Aksi</th>
+							<th class="px-3 py-2">Tabel</th>
+							<th class="px-3 py-2">Keterangan</th>
+						</tr>
+					</thead>
+					<tbody id="audit-body">
+						<tr><td class="px-3 py-3 text-slate-400" colspan="5">Memuat data...</td></tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+
+	<!-- Modal Void Pembayaran -->
+	<div id="modal-void" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50">
+		<div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl mx-4">
+			<h3 class="text-lg font-bold text-red-700">Void Pembayaran</h3>
+			<p class="mt-1 text-sm text-slate-500">Pembayaran yang divoid tidak bisa dikembalikan. Tagihan terkait akan dikembalikan ke status belum lunas.</p>
+			<input type="hidden" id="void-payment-id" />
+			<input type="hidden" id="void-payment-no" />
+			<div class="mt-4">
+				<label class="block text-xs text-slate-500 mb-1">No. Pembayaran</label>
+				<p id="void-no-display" class="font-mono text-sm text-slate-700"></p>
+			</div>
+			<div class="mt-3">
+				<label class="block text-xs text-slate-500 mb-1">Alasan Void <span class="text-red-500">*</span></label>
+				<textarea id="void-reason" rows="3" required placeholder="Contoh: Kesalahan input nominal, duplikasi data, dll."
+					class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></textarea>
+			</div>
+			<div class="mt-5 flex gap-2">
+				<button id="btn-confirm-void" class="flex-1 rounded-lg bg-red-600 px-4 py-2 font-semibold text-white hover:bg-red-700">
+					Konfirmasi Void
+				</button>
+				<button id="btn-cancel-void" class="flex-1 rounded-lg border border-slate-300 px-4 py-2 font-semibold">
+					Batal
+				</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- Modal Edit Tagihan -->
+	<div id="modal-edit-inv" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50">
+		<div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl mx-4">
+			<h3 class="text-lg font-bold">Koreksi Tagihan</h3>
+			<input type="hidden" id="edit-inv-id" />
+			<div class="mt-4 space-y-3 text-sm">
+				<div>
+					<p class="text-xs text-slate-500 mb-1">Siswa</p>
+					<p id="edit-inv-student" class="font-medium"></p>
+				</div>
+				<div>
+					<p class="text-xs text-slate-500 mb-1">Komponen — Periode</p>
+					<p id="edit-inv-detail" class="font-medium"></p>
+				</div>
+				<div>
+					<label class="block text-xs text-slate-500 mb-1">Nominal Tagihan (Rp)</label>
+					<input id="edit-inv-amount" type="number" min="0" step="1000"
+						class="w-full rounded-lg border border-slate-300 px-3 py-2" />
+				</div>
+				<div>
+					<label class="block text-xs text-slate-500 mb-1">Status</label>
+					<select id="edit-inv-status" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white">
+						<option value="draft">Draft</option>
+						<option value="posted">Ditagih</option>
+						<option value="paid">Lunas</option>
+						<option value="cancelled">Dibatalkan</option>
+					</select>
+				</div>
+				<div>
+					<label class="block text-xs text-slate-500 mb-1">Alasan Koreksi <span class="text-red-500">*</span></label>
+					<textarea id="edit-inv-reason" rows="2" required placeholder="Contoh: Koreksi nominal SPP Januari"
+						class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></textarea>
+				</div>
+			</div>
+			<div class="mt-5 flex gap-2">
+				<button id="btn-save-inv" class="flex-1 rounded-lg bg-[var(--brand)] px-4 py-2 font-semibold text-white">Simpan Koreksi</button>
+				<button id="btn-close-inv" class="flex-1 rounded-lg border border-slate-300 px-4 py-2 font-semibold">Batal</button>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		import { createClient } from "@supabase/supabase-js";
+
+		const supabase = createClient(
+			import.meta.env.PUBLIC_SUPABASE_URL,
+			import.meta.env.PUBLIC_SUPABASE_ANON_KEY,
+		);
+		const idr = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
+
+		// ─── Role guard ─────────────────────────────────────────────────────
+		const { data: { session } } = await supabase.auth.getSession();
+		if (!session) { window.location.href = "/login"; throw new Error(); }
+
+		const { data: profile } = await supabase
+			.from("user_profiles").select("role").eq("user_id", session.user.id).single();
+
+		if (profile?.role !== "admin") {
+			document.getElementById("access-denied")?.classList.remove("hidden");
+			throw new Error("Access denied");
+		}
+		document.getElementById("page-content")?.classList.remove("hidden");
+
+		// ─── Tab system ──────────────────────────────────────────────────────
+		document.querySelectorAll(".tab-btn").forEach((btn) => {
+			btn.addEventListener("click", () => {
+				const tab = (btn as HTMLElement).dataset.tab!;
+				document.querySelectorAll(".tab-btn").forEach((b) => {
+					b.className = "tab-btn rounded-lg px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-700";
+				});
+				(btn as HTMLElement).className = "tab-btn rounded-lg px-4 py-2 text-sm font-semibold bg-white shadow text-[var(--brand)]";
+				document.getElementById("tab-pembayaran")?.classList.add("hidden");
+				document.getElementById("tab-tagihan")?.classList.add("hidden");
+				document.getElementById("tab-audit")?.classList.add("hidden");
+				document.getElementById(`tab-${tab}`)?.classList.remove("hidden");
+				if (tab === "audit") loadAuditLogs();
+				if (tab === "tagihan") loadInvoices();
+			});
+		});
+
+		// ─── Load students (for filter dropdowns) ───────────────────────────
+		async function loadStudentFilters() {
+			const { data } = await supabase.from("students").select("id,name").order("name");
+			const opts = (data || []).map((s) => `<option value="${s.id}">${s.name}</option>`).join("");
+			document.getElementById("pay-filter-student")!.innerHTML = `<option value="">Semua Siswa</option>${opts}`;
+			document.getElementById("inv-filter-student")!.innerHTML = `<option value="">Semua Siswa</option>${opts}`;
+		}
+
+		// ─── PEMBAYARAN ─────────────────────────────────────────────────────
+		const paymentsBody = document.getElementById("payments-body")!;
+		const paymentMap = new Map<string, any>();
+
+		const STATE_BADGE: Record<string, string> = {
+			draft: "bg-slate-100 text-slate-600",
+			partial: "bg-amber-100 text-amber-700",
+			paid: "bg-green-100 text-green-700",
+			done: "bg-blue-100 text-blue-700",
+			voided: "bg-red-100 text-red-600",
+		};
+		const STATE_LABEL: Record<string, string> = {
+			draft: "Draft", partial: "Sebagian", paid: "Lunas", done: "Selesai", voided: "Void",
+		};
+
+		async function loadPayments() {
+			const studentFilter = (document.getElementById("pay-filter-student") as HTMLSelectElement).value;
+			const statusFilter = (document.getElementById("pay-filter-status") as HTMLSelectElement).value;
+
+			let query = supabase
+				.from("payments")
+				.select("id,payment_no,payment_date,state,amount_paid,is_voided,void_reason,voided_at,students(name)")
+				.order("created_at", { ascending: false })
+				.limit(200);
+
+			if (studentFilter) query = query.eq("student_id", studentFilter);
+			if (statusFilter === "voided") query = query.eq("is_voided", true);
+			if (statusFilter === "active") query = query.eq("is_voided", false);
+
+			const { data, error } = await query;
+			if (error) {
+				paymentsBody.innerHTML = `<tr><td class="px-3 py-3 text-red-600" colspan="6">${error.message}</td></tr>`;
+				return;
+			}
+
+			paymentMap.clear();
+			(data || []).forEach((p) => paymentMap.set(p.id, p));
+
+			paymentsBody.innerHTML = (data || []).map((p) => {
+				const isVoided = p.is_voided;
+				const stateKey = isVoided ? "voided" : (p.state ?? "draft");
+				const badge = STATE_BADGE[stateKey] ?? "bg-slate-100 text-slate-600";
+				const label = STATE_LABEL[stateKey] ?? stateKey;
+				return `<tr class="border-b ${isVoided ? "opacity-60" : ""}">
+					<td class="px-3 py-2 font-mono text-xs">${(p.payment_no ?? "").replace("PAY-", "PAY-").substring(0, 14)}...</td>
+					<td class="px-3 py-2">${p.payment_date}</td>
+					<td class="px-3 py-2">${p.students?.name ?? "-"}</td>
+					<td class="px-3 py-2">${idr.format(Number(p.amount_paid || 0))}</td>
+					<td class="px-3 py-2">
+						<span class="rounded-full px-2 py-0.5 text-xs font-medium ${badge}">${label}</span>
+						${isVoided ? `<p class="text-xs text-slate-400 mt-0.5">${p.void_reason ?? ""}</p>` : ""}
+					</td>
+					<td class="px-3 py-2">
+						${!isVoided
+							? `<button data-id="${p.id}" data-action="void"
+								class="rounded-lg border border-red-200 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50">
+								Void
+							</button>`
+							: '<span class="text-xs text-slate-400">—</span>'}
+					</td>
+				</tr>`;
+			}).join("");
+		}
+
+		paymentsBody.addEventListener("click", (e) => {
+			const btn = (e.target as HTMLElement).closest("button[data-action]") as HTMLButtonElement | null;
+			if (!btn) return;
+			const { id, action } = btn.dataset;
+			const p = paymentMap.get(id!);
+			if (!p || action !== "void") return;
+
+			const modal = document.getElementById("modal-void")!;
+			(document.getElementById("void-payment-id") as HTMLInputElement).value = id!;
+			document.getElementById("void-no-display")!.textContent = p.payment_no ?? id!;
+			(document.getElementById("void-reason") as HTMLTextAreaElement).value = "";
+			modal.classList.remove("hidden");
+			modal.classList.add("flex");
+		});
+
+		document.getElementById("btn-confirm-void")?.addEventListener("click", async () => {
+			const paymentId = (document.getElementById("void-payment-id") as HTMLInputElement).value;
+			const reason = (document.getElementById("void-reason") as HTMLTextAreaElement).value.trim();
+			if (!reason) { alert("Alasan void wajib diisi."); return; }
+
+			const btn = document.getElementById("btn-confirm-void") as HTMLButtonElement;
+			btn.disabled = true;
+			btn.textContent = "Memproses...";
+
+			try {
+				// 1. Ambil semua payment_lines untuk payment ini
+				const { data: lines, error: linesErr } = await supabase
+					.from("payment_lines")
+					.select("invoice_id,amount_paid")
+					.eq("payment_id", paymentId);
+				if (linesErr) throw new Error(linesErr.message);
+
+				// 2. Kembalikan paid_amount di setiap invoice
+				for (const line of (lines || [])) {
+					const { data: inv, error: invErr } = await supabase
+						.from("invoices")
+						.select("paid_amount,total_amount")
+						.eq("id", line.invoice_id)
+						.single();
+					if (invErr) throw new Error(invErr.message);
+
+					const newPaid = Math.max(0, Number(inv.paid_amount || 0) - Number(line.amount_paid || 0));
+					const newStatus = newPaid <= 0 ? "posted" : (newPaid >= Number(inv.total_amount) ? "paid" : "posted");
+
+					const { error: updErr } = await supabase
+						.from("invoices")
+						.update({ paid_amount: newPaid, status: newStatus })
+						.eq("id", line.invoice_id);
+					if (updErr) throw new Error(updErr.message);
+				}
+
+				// 3. Update payment: is_voided = true
+				const { error: voidErr } = await supabase
+					.from("payments")
+					.update({
+						is_voided: true,
+						void_reason: reason,
+						voided_by: session.user.email,
+						voided_at: new Date().toISOString(),
+					})
+					.eq("id", paymentId);
+				if (voidErr) throw new Error(voidErr.message);
+
+				// 4. Catat audit log
+				await supabase.from("audit_logs").insert({
+					user_email: session.user.email,
+					action: "void_payment",
+					table_name: "payments",
+					record_id: paymentId,
+					notes: reason,
+				});
+
+				document.getElementById("modal-void")!.classList.add("hidden");
+				document.getElementById("modal-void")!.classList.remove("flex");
+				await loadPayments();
+			} catch (err: any) {
+				alert("Gagal void: " + err.message);
+			} finally {
+				btn.disabled = false;
+				btn.textContent = "Konfirmasi Void";
+			}
+		});
+
+		document.getElementById("btn-cancel-void")?.addEventListener("click", () => {
+			document.getElementById("modal-void")!.classList.add("hidden");
+			document.getElementById("modal-void")!.classList.remove("flex");
+		});
+
+		document.getElementById("pay-filter-student")?.addEventListener("change", loadPayments);
+		document.getElementById("pay-filter-status")?.addEventListener("change", loadPayments);
+
+		// ─── TAGIHAN ─────────────────────────────────────────────────────────
+		const invoicesBody = document.getElementById("invoices-body")!;
+		const invoiceMap = new Map<string, any>();
+
+		const INV_BADGE: Record<string, string> = {
+			draft: "bg-slate-100 text-slate-600",
+			posted: "bg-blue-100 text-blue-700",
+			paid: "bg-green-100 text-green-700",
+			cancelled: "bg-red-100 text-red-600",
+		};
+		const INV_LABEL: Record<string, string> = { draft: "Draft", posted: "Ditagih", paid: "Lunas", cancelled: "Dibatalkan" };
+
+		async function loadInvoices() {
+			const studentFilter = (document.getElementById("inv-filter-student") as HTMLSelectElement).value;
+			const statusFilter = (document.getElementById("inv-filter-status") as HTMLSelectElement).value;
+
+			let query = supabase
+				.from("invoices")
+				.select("id,status,total_amount,paid_amount,student_id,students(name),components(name),billing_periods(name)")
+				.order("created_at", { ascending: false })
+				.limit(200);
+
+			if (studentFilter) query = query.eq("student_id", studentFilter);
+			if (statusFilter) query = query.eq("status", statusFilter);
+
+			const { data, error } = await query;
+			if (error) {
+				invoicesBody.innerHTML = `<tr><td class="px-3 py-3 text-red-600" colspan="7">${error.message}</td></tr>`;
+				return;
+			}
+
+			invoiceMap.clear();
+			(data || []).forEach((inv) => invoiceMap.set(inv.id, inv));
+
+			invoicesBody.innerHTML = (data || []).map((inv) => {
+				const badge = INV_BADGE[inv.status] ?? "bg-slate-100 text-slate-600";
+				const label = INV_LABEL[inv.status] ?? inv.status;
+				return `<tr class="border-b">
+					<td class="px-3 py-2">${inv.students?.name ?? "-"}</td>
+					<td class="px-3 py-2">${inv.components?.name ?? "-"}</td>
+					<td class="px-3 py-2">${inv.billing_periods?.name ?? "-"}</td>
+					<td class="px-3 py-2">${idr.format(Number(inv.total_amount || 0))}</td>
+					<td class="px-3 py-2">${idr.format(Number(inv.paid_amount || 0))}</td>
+					<td class="px-3 py-2">
+						<span class="rounded-full px-2 py-0.5 text-xs font-medium ${badge}">${label}</span>
+					</td>
+					<td class="px-3 py-2">
+						<button data-id="${inv.id}" data-action="edit-inv"
+							class="rounded-lg border border-blue-200 px-3 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50">
+							Koreksi
+						</button>
+					</td>
+				</tr>`;
+			}).join("");
+		}
+
+		invoicesBody.addEventListener("click", (e) => {
+			const btn = (e.target as HTMLElement).closest("button[data-action]") as HTMLButtonElement | null;
+			if (!btn || btn.dataset.action !== "edit-inv") return;
+			const inv = invoiceMap.get(btn.dataset.id!);
+			if (!inv) return;
+
+			(document.getElementById("edit-inv-id") as HTMLInputElement).value = inv.id;
+			document.getElementById("edit-inv-student")!.textContent = inv.students?.name ?? "-";
+			document.getElementById("edit-inv-detail")!.textContent =
+				`${inv.components?.name ?? "-"} — ${inv.billing_periods?.name ?? "-"}`;
+			(document.getElementById("edit-inv-amount") as HTMLInputElement).value = String(inv.total_amount || 0);
+			(document.getElementById("edit-inv-status") as HTMLSelectElement).value = inv.status;
+			(document.getElementById("edit-inv-reason") as HTMLTextAreaElement).value = "";
+
+			const modal = document.getElementById("modal-edit-inv")!;
+			modal.classList.remove("hidden");
+			modal.classList.add("flex");
+		});
+
+		document.getElementById("btn-save-inv")?.addEventListener("click", async () => {
+			const id = (document.getElementById("edit-inv-id") as HTMLInputElement).value;
+			const newAmount = Number((document.getElementById("edit-inv-amount") as HTMLInputElement).value);
+			const newStatus = (document.getElementById("edit-inv-status") as HTMLSelectElement).value;
+			const reason = (document.getElementById("edit-inv-reason") as HTMLTextAreaElement).value.trim();
+			if (!reason) { alert("Alasan koreksi wajib diisi."); return; }
+
+			const oldInv = invoiceMap.get(id);
+
+			const { error } = await supabase
+				.from("invoices")
+				.update({ total_amount: newAmount, status: newStatus })
+				.eq("id", id);
+			if (error) return alert(error.message);
+
+			await supabase.from("audit_logs").insert({
+				user_email: session.user.email,
+				action: "edit_invoice",
+				table_name: "invoices",
+				record_id: id,
+				old_data: { total_amount: oldInv?.total_amount, status: oldInv?.status },
+				new_data: { total_amount: newAmount, status: newStatus },
+				notes: reason,
+			});
+
+			document.getElementById("modal-edit-inv")!.classList.add("hidden");
+			document.getElementById("modal-edit-inv")!.classList.remove("flex");
+			await loadInvoices();
+		});
+
+		document.getElementById("btn-close-inv")?.addEventListener("click", () => {
+			document.getElementById("modal-edit-inv")!.classList.add("hidden");
+			document.getElementById("modal-edit-inv")!.classList.remove("flex");
+		});
+
+		document.getElementById("inv-filter-student")?.addEventListener("change", loadInvoices);
+		document.getElementById("inv-filter-status")?.addEventListener("change", loadInvoices);
+
+		// ─── AUDIT LOG ────────────────────────────────────────────────────────
+		const auditBody = document.getElementById("audit-body")!;
+		const ACTION_LABEL: Record<string, string> = {
+			void_payment: "Void Pembayaran",
+			edit_invoice: "Koreksi Tagihan",
+			change_role: "Ubah Role",
+			create_user: "Buat Pengguna",
+		};
+
+		async function loadAuditLogs() {
+			const { data, error } = await supabase
+				.from("audit_logs")
+				.select("*")
+				.order("created_at", { ascending: false })
+				.limit(100);
+
+			if (error) {
+				auditBody.innerHTML = `<tr><td class="px-3 py-3 text-red-600" colspan="5">${error.message}</td></tr>`;
+				return;
+			}
+
+			if (!data?.length) {
+				auditBody.innerHTML = `<tr><td class="px-3 py-3 text-slate-400" colspan="5">Belum ada log audit.</td></tr>`;
+				return;
+			}
+
+			auditBody.innerHTML = (data || []).map((log) => {
+				const dt = new Date(log.created_at);
+				const dateStr = dt.toLocaleDateString("id-ID") + " " + dt.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+				const actionLabel = ACTION_LABEL[log.action] ?? log.action;
+				return `<tr class="border-b">
+					<td class="px-3 py-2 text-xs text-slate-500 whitespace-nowrap">${dateStr}</td>
+					<td class="px-3 py-2 text-xs">${log.user_email ?? "-"}</td>
+					<td class="px-3 py-2">
+						<span class="rounded-full px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-700">${actionLabel}</span>
+					</td>
+					<td class="px-3 py-2 text-xs text-slate-500">${log.table_name}</td>
+					<td class="px-3 py-2 text-xs text-slate-600">${log.notes ?? "-"}</td>
+				</tr>`;
+			}).join("");
+		}
+
+		// ─── Init ────────────────────────────────────────────────────────────
+		await loadStudentFilters();
+		await loadPayments();
+	</script>
+</AppLayout>

@@ -82,13 +82,26 @@ const navLink = (href: string) => {
 
 						<p class="px-3 pt-4 pb-1 text-xs uppercase tracking-[0.14em] text-teal-200">Transaksi</p>
 						<a class={navLink("/tagihan")} href="/tagihan">Tagihan Siswa</a>
-						<a class={navLink("/pembayaran")} href="/pembayaran">Pembayaran</a>
+						<a class={navLink("/pembayaran/virtual-akun")} href="/pembayaran/virtual-akun">Virtual Akun Bank</a>
+						<a class={navLink("/pembayaran")} href="/pembayaran">Pembayaran Tunai</a>
 						<a class={navLink("/laporan")} href="/laporan">Laporan</a>
+						<a class={navLink("/laporan/mutasi")} href="/laporan/mutasi">Mutasi</a>
+
+						<!-- Admin-only section: disembunyikan, ditampilkan via JS jika role=admin -->
+						<div id="admin-nav" class="hidden">
+							<p class="px-3 pt-4 pb-1 text-xs uppercase tracking-[0.14em] text-yellow-300">Administrator</p>
+							<a class={navLink("/admin/pengguna")} href="/admin/pengguna">Kelola Pengguna</a>
+							<a class={navLink("/admin/koreksi")} href="/admin/koreksi">Koreksi Data</a>
+							<a class={navLink("/admin/rekening")} href="/admin/rekening">Rekening Bank</a>
+						</div>
 					</nav>
 				</div>
 
 				<!-- User info + logout -->
 				<div class="mt-auto border-t border-white/10 pt-6">
+					<div class="mb-1 flex items-center gap-2">
+						<span id="sidebar-role-badge" class="hidden rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"></span>
+					</div>
 					<p id="sidebar-email" class="mb-2 truncate text-xs text-teal-200"></p>
 					<button
 						id="logout-btn"
@@ -111,13 +124,50 @@ const navLink = (href: string) => {
 		<script>
 			import { supabase } from "../lib/supabase";
 
-			// ─── Auth guard ────────────────────────────────────────────────────────
+			// ─── Auth guard + role ────────────────────────────────────────────────
 			const { data: { session } } = await supabase.auth.getSession();
 			if (!session) {
 				window.location.href = "/login";
 			} else {
 				const emailEl = document.getElementById("sidebar-email");
 				if (emailEl) emailEl.textContent = session.user.email ?? "";
+
+				// Ambil profil & role
+				let role = "kasir";
+				const { data: profile } = await supabase
+					.from("user_profiles")
+					.select("role, full_name")
+					.eq("user_id", session.user.id)
+					.single();
+
+				if (!profile) {
+					// Auto-buat profil kasir untuk user baru
+					await supabase.from("user_profiles").upsert({
+						user_id: session.user.id,
+						email: session.user.email ?? "",
+						role: "kasir",
+					});
+				} else {
+					role = profile.role ?? "kasir";
+				}
+
+				// Simpan role global untuk cek di halaman
+				(window as any).__userRole = role;
+
+				// Tampilkan badge role
+				const badge = document.getElementById("sidebar-role-badge");
+				if (badge) {
+					badge.textContent = role === "admin" ? "Administrator" : "Kasir";
+					badge.className = role === "admin"
+						? "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-yellow-400 text-yellow-900"
+						: "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-teal-500/30 text-teal-200";
+					badge.classList.remove("hidden");
+				}
+
+				// Tampilkan nav admin jika role=admin
+				if (role === "admin") {
+					document.getElementById("admin-nav")?.classList.remove("hidden");
+				}
 			}
 
 			supabase.auth.onAuthStateChange((event, session) => {
@@ -161,7 +211,6 @@ const navLink = (href: string) => {
 			sidebarClose?.addEventListener("click", closeSidebar);
 			overlay?.addEventListener("click", closeSidebar);
 
-			// Tutup sidebar saat link navigasi diklik (di mobile)
 			sidebar?.querySelectorAll("a").forEach((link) => {
 				link.addEventListener("click", () => {
 					if (window.innerWidth < 1024) closeSidebar();

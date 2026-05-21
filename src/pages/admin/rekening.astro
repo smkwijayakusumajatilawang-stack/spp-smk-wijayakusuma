@@ -1,0 +1,278 @@
+---
+import AppLayout from "../../layouts/AppLayout.astro";
+---
+
+<AppLayout title="Rekening Bank">
+	<header class="mb-6">
+		<p class="text-sm font-semibold uppercase tracking-[0.15em] text-[var(--brand)]">Administrator</p>
+		<h2 class="text-2xl font-black sm:text-3xl">Rekening Bank Yayasan</h2>
+		<p class="mt-1 text-sm text-slate-500">Rekening ini ditampilkan kepada kasir saat proses pembayaran manual.</p>
+	</header>
+
+	<!-- Access denied (ditampilkan jika bukan admin) -->
+	<div id="access-denied" class="hidden rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+		<p class="font-semibold text-red-700">Akses Ditolak</p>
+		<p class="text-sm text-red-500 mt-1">Halaman ini hanya dapat diakses oleh Administrator.</p>
+	</div>
+
+	<div id="page-content" class="hidden">
+		<section class="grid gap-4 lg:grid-cols-[380px_1fr]">
+
+			<!-- Form Tambah / Edit Rekening -->
+			<div class="rounded-xl border border-slate-200 p-5">
+				<h3 class="text-base font-bold" id="form-title">Tambah Rekening</h3>
+				<form id="rekening-form" class="mt-4 space-y-3">
+					<input type="hidden" id="f-id" value="" />
+					<div>
+						<label class="block text-xs text-slate-500 mb-1">Nama Bank <span class="text-red-500">*</span></label>
+						<input id="f-bank-name" type="text" required placeholder="contoh: BRI, BNI, Mandiri"
+							class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+					</div>
+					<div>
+						<label class="block text-xs text-slate-500 mb-1">Nomor Rekening <span class="text-red-500">*</span></label>
+						<input id="f-account-no" type="text" required placeholder="contoh: 1234-5678-9012"
+							class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono" />
+					</div>
+					<div>
+						<label class="block text-xs text-slate-500 mb-1">Nama Pemilik Rekening <span class="text-red-500">*</span></label>
+						<input id="f-account-name" type="text" required placeholder="contoh: Yayasan Areta"
+							class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+					</div>
+					<div>
+						<label class="block text-xs text-slate-500 mb-1">Keterangan (opsional)</label>
+						<input id="f-notes" type="text" placeholder="contoh: Rekening utama SPP"
+							class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+					</div>
+					<div class="flex items-center gap-2">
+						<input id="f-active" type="checkbox" checked class="rounded" />
+						<label for="f-active" class="text-sm text-slate-700">Rekening aktif (ditampilkan di pembayaran)</label>
+					</div>
+
+					<div id="form-msg" class="hidden rounded-lg px-3 py-2 text-sm"></div>
+
+					<div class="flex gap-2 pt-1">
+						<button type="submit"
+							class="flex-1 rounded-lg bg-[var(--brand)] px-4 py-2 font-semibold text-sm text-white hover:opacity-90 transition">
+							<span id="btn-label">Simpan Rekening</span>
+						</button>
+						<button type="button" id="btn-cancel" class="hidden rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold hover:bg-slate-50 transition">
+							Batal
+						</button>
+					</div>
+				</form>
+			</div>
+
+			<!-- Daftar Rekening -->
+			<div class="rounded-xl border border-slate-200 p-5">
+				<div class="flex items-center justify-between mb-4">
+					<h3 class="text-base font-bold">Daftar Rekening</h3>
+					<button id="btn-refresh" class="text-xs text-slate-500 hover:text-slate-800 transition">
+						↻ Muat ulang
+					</button>
+				</div>
+				<div class="overflow-x-auto">
+					<table class="min-w-full text-sm">
+						<thead class="border-b bg-slate-50 text-left text-xs uppercase text-slate-500">
+							<tr>
+								<th class="px-3 py-2">Bank</th>
+								<th class="px-3 py-2">No. Rekening</th>
+								<th class="px-3 py-2">Atas Nama</th>
+								<th class="px-3 py-2">Keterangan</th>
+								<th class="px-3 py-2">Status</th>
+								<th class="px-3 py-2">Aksi</th>
+							</tr>
+						</thead>
+						<tbody id="rekening-body">
+							<tr><td colspan="6" class="px-3 py-4 text-center text-slate-400 text-sm">Memuat data...</td></tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</section>
+	</div>
+
+	<!-- Modal Konfirmasi Hapus -->
+	<div id="modal-delete" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+		<div class="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl mx-4">
+			<h3 class="text-lg font-bold text-red-700">Hapus Rekening?</h3>
+			<p class="mt-2 text-sm text-slate-600">Rekening <strong id="modal-bank-name"></strong> akan dihapus permanen dan tidak dapat dikembalikan.</p>
+			<div class="mt-5 flex gap-3">
+				<button id="btn-delete-cancel" class="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold hover:bg-slate-50">Batal</button>
+				<button id="btn-delete-confirm" class="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">Hapus</button>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		import { supabase } from "../../lib/supabase";
+
+		// ─── Role Guard ───────────────────────────────────────────────────────────
+		const { data: { session } } = await supabase.auth.getSession();
+		if (!session) { window.location.href = "/login"; }
+
+		const { data: profile } = await supabase
+			.from("user_profiles")
+			.select("role")
+			.eq("user_id", session.user.id)
+			.single();
+
+		const role = profile?.role ?? "kasir";
+		if (role !== "admin") {
+			document.getElementById("access-denied")?.classList.remove("hidden");
+		} else {
+			document.getElementById("page-content")?.classList.remove("hidden");
+			init();
+		}
+
+		// ─── Logic ───────────────────────────────────────────────────────────────
+		function init() {
+			const form = document.getElementById("rekening-form") as HTMLFormElement;
+			const fId = document.getElementById("f-id") as HTMLInputElement;
+			const fBankName = document.getElementById("f-bank-name") as HTMLInputElement;
+			const fAccountNo = document.getElementById("f-account-no") as HTMLInputElement;
+			const fAccountName = document.getElementById("f-account-name") as HTMLInputElement;
+			const fNotes = document.getElementById("f-notes") as HTMLInputElement;
+			const fActive = document.getElementById("f-active") as HTMLInputElement;
+			const formMsg = document.getElementById("form-msg")!;
+			const formTitle = document.getElementById("form-title")!;
+			const btnLabel = document.getElementById("btn-label")!;
+			const btnCancel = document.getElementById("btn-cancel")!;
+			const rekeningBody = document.getElementById("rekening-body")!;
+			const modalDelete = document.getElementById("modal-delete")!;
+			const modalBankName = document.getElementById("modal-bank-name")!;
+			const btnDeleteCancel = document.getElementById("btn-delete-cancel")!;
+			const btnDeleteConfirm = document.getElementById("btn-delete-confirm")!;
+
+			let deleteTargetId: string | null = null;
+
+			function showMsg(msg: string, isError = false) {
+				formMsg.textContent = msg;
+				formMsg.className = `rounded-lg px-3 py-2 text-sm ${isError ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`;
+				formMsg.classList.remove("hidden");
+				setTimeout(() => formMsg.classList.add("hidden"), 3500);
+			}
+
+			function resetForm() {
+				fId.value = "";
+				form.reset();
+				fActive.checked = true;
+				formTitle.textContent = "Tambah Rekening";
+				btnLabel.textContent = "Simpan Rekening";
+				btnCancel.classList.add("hidden");
+			}
+
+			async function loadRekening() {
+				rekeningBody.innerHTML = `<tr><td colspan="6" class="px-3 py-4 text-center text-slate-400 text-sm">Memuat...</td></tr>`;
+				const { data, error } = await supabase
+					.from("bank_accounts")
+					.select("*")
+					.order("created_at", { ascending: true });
+
+				if (error) {
+					rekeningBody.innerHTML = `<tr><td colspan="6" class="px-3 py-3 text-red-600 text-sm">${error.message}</td></tr>`;
+					return;
+				}
+				if (!data?.length) {
+					rekeningBody.innerHTML = `<tr><td colspan="6" class="px-3 py-4 text-center text-slate-400 text-sm">Belum ada rekening. Tambahkan rekening di sebelah kiri.</td></tr>`;
+					return;
+				}
+
+				rekeningBody.innerHTML = data.map((r) => `
+					<tr class="border-b hover:bg-slate-50 transition-colors">
+						<td class="px-3 py-2 font-semibold">${r.bank_name}</td>
+						<td class="px-3 py-2 font-mono text-sm">${r.account_no}</td>
+						<td class="px-3 py-2">${r.account_name}</td>
+						<td class="px-3 py-2 text-slate-500 text-xs">${r.notes ?? "—"}</td>
+						<td class="px-3 py-2">
+							<span class="rounded-full px-2 py-0.5 text-xs font-medium ${r.is_active ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}">
+								${r.is_active ? "Aktif" : "Nonaktif"}
+							</span>
+						</td>
+						<td class="px-3 py-2">
+							<div class="flex gap-2">
+								<button data-action="edit"
+									data-id="${r.id}" data-bank="${r.bank_name}" data-no="${r.account_no}"
+									data-name="${r.account_name}" data-notes="${r.notes ?? ""}" data-active="${r.is_active}"
+									class="text-xs text-blue-600 hover:underline font-medium">Edit</button>
+								<button data-action="delete" data-id="${r.id}" data-bank="${r.bank_name}"
+									class="text-xs text-red-600 hover:underline font-medium">Hapus</button>
+							</div>
+						</td>
+					</tr>
+				`).join("");
+			}
+
+			// Event delegation untuk tombol edit/delete
+			rekeningBody.addEventListener("click", (e) => {
+				const btn = (e.target as HTMLElement).closest("button[data-action]") as HTMLButtonElement | null;
+				if (!btn) return;
+
+				if (btn.dataset.action === "edit") {
+					fId.value = btn.dataset.id!;
+					fBankName.value = btn.dataset.bank!;
+					fAccountNo.value = btn.dataset.no!;
+					fAccountName.value = btn.dataset.name!;
+					fNotes.value = btn.dataset.notes ?? "";
+					fActive.checked = btn.dataset.active === "true";
+					formTitle.textContent = "Edit Rekening";
+					btnLabel.textContent = "Update Rekening";
+					btnCancel.classList.remove("hidden");
+					fBankName.focus();
+				}
+
+				if (btn.dataset.action === "delete") {
+					deleteTargetId = btn.dataset.id!;
+					modalBankName.textContent = btn.dataset.bank!;
+					modalDelete.classList.remove("hidden");
+					document.body.style.overflow = "hidden";
+				}
+			});
+
+			btnCancel.addEventListener("click", resetForm);
+
+			btnDeleteCancel.addEventListener("click", () => {
+				modalDelete.classList.add("hidden");
+				document.body.style.overflow = "";
+				deleteTargetId = null;
+			});
+
+			btnDeleteConfirm.addEventListener("click", async () => {
+				if (!deleteTargetId) return;
+				const { error } = await supabase.from("bank_accounts").delete().eq("id", deleteTargetId);
+				modalDelete.classList.add("hidden");
+				document.body.style.overflow = "";
+				deleteTargetId = null;
+				if (error) { showMsg(error.message, true); return; }
+				showMsg("Rekening berhasil dihapus.");
+				await loadRekening();
+			});
+
+			form.addEventListener("submit", async (e) => {
+				e.preventDefault();
+				const payload = {
+					bank_name: fBankName.value.trim(),
+					account_no: fAccountNo.value.trim(),
+					account_name: fAccountName.value.trim(),
+					notes: fNotes.value.trim() || null,
+					is_active: fActive.checked,
+				};
+
+				let error;
+				if (fId.value) {
+					({ error } = await supabase.from("bank_accounts").update(payload).eq("id", fId.value));
+				} else {
+					({ error } = await supabase.from("bank_accounts").insert(payload));
+				}
+
+				if (error) { showMsg(error.message, true); return; }
+				showMsg(fId.value ? "Rekening berhasil diupdate." : "Rekening berhasil disimpan.");
+				resetForm();
+				await loadRekening();
+			});
+
+			document.getElementById("btn-refresh")?.addEventListener("click", loadRekening);
+
+			loadRekening();
+		}
+	</script>
+</AppLayout>

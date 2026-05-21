@@ -1,0 +1,291 @@
+---
+import AppLayout from "../../layouts/AppLayout.astro";
+---
+
+<AppLayout title="Kelola Pengguna">
+	<header class="mb-6">
+		<p class="text-sm font-semibold uppercase tracking-[0.15em] text-[var(--brand)]">Administrator</p>
+		<h2 class="text-2xl font-black sm:text-3xl">Kelola Pengguna</h2>
+		<p class="mt-1 text-sm text-slate-500">Buat akun kasir/admin dan atur hak akses.</p>
+	</header>
+
+	<!-- Guard: hanya admin -->
+	<div id="access-denied" class="hidden rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+		<p class="font-semibold text-red-700">Akses ditolak — halaman ini hanya untuk Administrator.</p>
+		<a href="/" class="mt-3 inline-block text-sm text-red-600 underline">Kembali ke Dashboard</a>
+	</div>
+
+	<div id="page-content" class="hidden">
+		<section class="grid gap-4 lg:grid-cols-[400px_1fr]">
+
+			<!-- Form Tambah User -->
+			<form id="user-form" class="rounded-xl border border-slate-200 p-4">
+				<h3 class="text-lg font-bold">Tambah Pengguna Baru</h3>
+				<div class="mt-4 space-y-3">
+					<div>
+						<label class="block text-xs text-slate-500 mb-1">Nama Lengkap</label>
+						<input id="f-fullname" type="text" required placeholder="Contoh: Budi Santoso"
+							class="w-full rounded-lg border border-slate-300 px-3 py-2" />
+					</div>
+					<div>
+						<label class="block text-xs text-slate-500 mb-1">Email</label>
+						<input id="f-email" type="email" required placeholder="email@sekolah.ac.id"
+							class="w-full rounded-lg border border-slate-300 px-3 py-2" />
+					</div>
+					<div>
+						<label class="block text-xs text-slate-500 mb-1">Password</label>
+						<input id="f-password" type="password" required minlength="8" placeholder="Min. 8 karakter"
+							class="w-full rounded-lg border border-slate-300 px-3 py-2" />
+					</div>
+					<div>
+						<label class="block text-xs text-slate-500 mb-1">Role</label>
+						<select id="f-role" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white">
+							<option value="kasir">Kasir</option>
+							<option value="admin">Administrator</option>
+						</select>
+					</div>
+				</div>
+				<div id="form-error" class="hidden mt-3 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700"></div>
+				<div id="form-success" class="hidden mt-3 rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-700"></div>
+				<button type="submit" id="btn-submit"
+					class="mt-4 w-full rounded-lg bg-[var(--brand)] px-4 py-2 font-semibold text-white disabled:opacity-40">
+					Tambah Pengguna
+				</button>
+			</form>
+
+			<!-- Daftar Pengguna -->
+			<div class="rounded-xl border border-slate-200 p-4">
+				<h3 class="text-lg font-bold mb-3">Daftar Pengguna</h3>
+				<div class="overflow-x-auto">
+					<table class="min-w-full text-sm">
+						<thead class="border-b bg-slate-50 text-left text-xs uppercase text-slate-500">
+							<tr>
+								<th class="px-3 py-2">Nama</th>
+								<th class="px-3 py-2">Email</th>
+								<th class="px-3 py-2">Role</th>
+								<th class="px-3 py-2">Status</th>
+								<th class="px-3 py-2">Aksi</th>
+							</tr>
+						</thead>
+						<tbody id="users-body">
+							<tr><td class="px-3 py-3 text-slate-400" colspan="5">Memuat data...</td></tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</section>
+
+		<!-- Modal Ubah Role -->
+		<div id="modal-role" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50">
+			<div class="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl mx-4">
+				<h3 class="text-lg font-bold">Ubah Role Pengguna</h3>
+				<p id="modal-user-name" class="mt-1 text-sm text-slate-500"></p>
+				<input type="hidden" id="modal-user-id" />
+				<div class="mt-4">
+					<label class="block text-xs text-slate-500 mb-1">Role Baru</label>
+					<select id="modal-role-select" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white">
+						<option value="kasir">Kasir</option>
+						<option value="admin">Administrator</option>
+					</select>
+				</div>
+				<div class="mt-5 flex gap-2">
+					<button id="modal-save" class="flex-1 rounded-lg bg-[var(--brand)] px-4 py-2 font-semibold text-white">Simpan</button>
+					<button id="modal-close" class="flex-1 rounded-lg border border-slate-300 px-4 py-2 font-semibold">Batal</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		import { createClient } from "@supabase/supabase-js";
+
+		const supabase = createClient(
+			import.meta.env.PUBLIC_SUPABASE_URL,
+			import.meta.env.PUBLIC_SUPABASE_ANON_KEY,
+		);
+
+		// ─── Role guard ────────────────────────────────────────────────────────
+		async function checkAdmin() {
+			const { data: { session } } = await supabase.auth.getSession();
+			if (!session) { window.location.href = "/login"; return false; }
+			const { data: profile } = await supabase
+				.from("user_profiles").select("role").eq("user_id", session.user.id).single();
+			if (profile?.role !== "admin") {
+				document.getElementById("access-denied")?.classList.remove("hidden");
+				return false;
+			}
+			document.getElementById("page-content")?.classList.remove("hidden");
+			return true;
+		}
+
+		const isAdmin = await checkAdmin();
+		if (!isAdmin) throw new Error("Access denied");
+
+		const { data: { session } } = await supabase.auth.getSession();
+
+		// ─── Helpers ──────────────────────────────────────────────────────────
+		const usersBody = document.getElementById("users-body")!;
+		const ROLE_BADGE = {
+			admin: "bg-yellow-100 text-yellow-800",
+			kasir: "bg-teal-100 text-teal-700",
+		};
+
+		// ─── Load users ───────────────────────────────────────────────────────
+		async function loadUsers() {
+			const { data, error } = await supabase
+				.from("user_profiles")
+				.select("id,user_id,email,full_name,role,is_active,created_at")
+				.order("created_at", { ascending: false });
+
+			if (error) {
+				usersBody.innerHTML = `<tr><td class="px-3 py-3 text-red-600" colspan="5">${error.message}</td></tr>`;
+				return;
+			}
+
+			if (!data?.length) {
+				usersBody.innerHTML = `<tr><td class="px-3 py-3 text-slate-400" colspan="5">Belum ada pengguna.</td></tr>`;
+				return;
+			}
+
+			usersBody.innerHTML = (data || []).map((u) => {
+				const roleBadge = ROLE_BADGE[u.role as keyof typeof ROLE_BADGE] ?? "bg-slate-100 text-slate-600";
+				const isSelf = u.user_id === session?.user?.id;
+				return `<tr class="border-b ${!u.is_active ? "opacity-50" : ""}">
+					<td class="px-3 py-2 font-medium">${u.full_name || "-"}${isSelf ? ' <span class="text-xs text-slate-400">(Anda)</span>' : ""}</td>
+					<td class="px-3 py-2 text-slate-600">${u.email}</td>
+					<td class="px-3 py-2">
+						<span class="rounded-full px-2 py-0.5 text-xs font-semibold ${roleBadge}">${u.role === "admin" ? "Administrator" : "Kasir"}</span>
+					</td>
+					<td class="px-3 py-2">
+						<span class="rounded-full px-2 py-0.5 text-xs font-medium ${u.is_active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}">
+							${u.is_active ? "Aktif" : "Nonaktif"}
+						</span>
+					</td>
+					<td class="px-3 py-2 space-x-2 whitespace-nowrap">
+						${!isSelf ? `<button data-id="${u.id}" data-name="${u.full_name || u.email}" data-role="${u.role}" data-action="change-role"
+							class="text-blue-600 hover:underline text-xs">Ubah Role</button>` : ""}
+						${!isSelf ? `<button data-id="${u.id}" data-active="${u.is_active}" data-action="toggle-active"
+							class="text-slate-500 hover:underline text-xs">${u.is_active ? "Nonaktifkan" : "Aktifkan"}</button>` : ""}
+					</td>
+				</tr>`;
+			}).join("");
+		}
+
+		// ─── Create user ──────────────────────────────────────────────────────
+		const form = document.getElementById("user-form") as HTMLFormElement;
+		const formError = document.getElementById("form-error")!;
+		const formSuccess = document.getElementById("form-success")!;
+		const btnSubmit = document.getElementById("btn-submit") as HTMLButtonElement;
+
+		form.addEventListener("submit", async (e) => {
+			e.preventDefault();
+			formError.classList.add("hidden");
+			formSuccess.classList.add("hidden");
+			btnSubmit.disabled = true;
+			btnSubmit.textContent = "Memproses...";
+
+			const email = (document.getElementById("f-email") as HTMLInputElement).value;
+			const password = (document.getElementById("f-password") as HTMLInputElement).value;
+			const fullName = (document.getElementById("f-fullname") as HTMLInputElement).value;
+			const role = (document.getElementById("f-role") as HTMLSelectElement).value;
+
+			try {
+				const token = session?.access_token;
+				const res = await fetch("/api/admin/create-user", {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						"Authorization": `Bearer ${token}`,
+					},
+					body: JSON.stringify({ email, password, full_name: fullName, role }),
+				});
+
+				const result = await res.json();
+				if (!res.ok) {
+					formError.textContent = result.error || "Gagal membuat pengguna.";
+					formError.classList.remove("hidden");
+				} else {
+					formSuccess.textContent = `Pengguna "${fullName || email}" berhasil dibuat.`;
+					formSuccess.classList.remove("hidden");
+					form.reset();
+					await loadUsers();
+				}
+			} catch (err: any) {
+				formError.textContent = err.message || "Terjadi kesalahan.";
+				formError.classList.remove("hidden");
+			} finally {
+				btnSubmit.disabled = false;
+				btnSubmit.textContent = "Tambah Pengguna";
+			}
+		});
+
+		// ─── Table actions ────────────────────────────────────────────────────
+		const modal = document.getElementById("modal-role")!;
+		const modalName = document.getElementById("modal-user-name")!;
+		const modalUserId = document.getElementById("modal-user-id") as HTMLInputElement;
+		const modalRoleSelect = document.getElementById("modal-role-select") as HTMLSelectElement;
+
+		usersBody.addEventListener("click", async (e) => {
+			const btn = (e.target as HTMLElement).closest("button[data-action]") as HTMLButtonElement | null;
+			if (!btn) return;
+			const { id, action, name, role, active } = btn.dataset;
+
+			if (action === "change-role") {
+				modalName.textContent = name || "";
+				modalUserId.value = id!;
+				modalRoleSelect.value = role!;
+				modal.classList.remove("hidden");
+				modal.classList.add("flex");
+			}
+
+			if (action === "toggle-active") {
+				const isActive = active === "true";
+				if (!confirm(`${isActive ? "Nonaktifkan" : "Aktifkan"} pengguna ini?`)) return;
+				const { error } = await supabase
+					.from("user_profiles")
+					.update({ is_active: !isActive })
+					.eq("id", id!);
+				if (error) return alert(error.message);
+				await loadUsers();
+			}
+		});
+
+		document.getElementById("modal-save")?.addEventListener("click", async () => {
+			const id = modalUserId.value;
+			const newRole = modalRoleSelect.value;
+			const { error } = await supabase
+				.from("user_profiles")
+				.update({ role: newRole })
+				.eq("id", id);
+			if (error) return alert(error.message);
+
+			// Audit log
+			await supabase.from("audit_logs").insert({
+				user_email: session?.user?.email,
+				action: "change_role",
+				table_name: "user_profiles",
+				record_id: id,
+				new_data: { role: newRole },
+				notes: `Role diubah menjadi ${newRole}`,
+			});
+
+			modal.classList.add("hidden");
+			modal.classList.remove("flex");
+			await loadUsers();
+		});
+
+		document.getElementById("modal-close")?.addEventListener("click", () => {
+			modal.classList.add("hidden");
+			modal.classList.remove("flex");
+		});
+
+		modal.addEventListener("click", (e) => {
+			if (e.target === modal) {
+				modal.classList.add("hidden");
+				modal.classList.remove("flex");
+			}
+		});
+
+		await loadUsers();
+	</script>
+</AppLayout>
