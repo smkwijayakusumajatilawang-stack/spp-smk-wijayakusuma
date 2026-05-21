@@ -67,6 +67,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 							<th class="px-3 py-2">Total</th>
 							<th class="px-3 py-2">Terbayar</th>
 							<th class="px-3 py-2">Status</th>
+							<th class="px-3 py-2">Tgl/Wkt Lunas</th>
 							<th class="px-3 py-2">Aksi</th>
 						</tr>
 					</thead>
@@ -75,6 +76,36 @@ import AppLayout from "../../layouts/AppLayout.astro";
 			</div>
 		</div>
 	</section>
+
+	<!-- Modal Edit Tanggal/Waktu Lunas -->
+	<div id="modal-lunas" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/40">
+		<div class="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+			<h3 class="text-lg font-bold mb-4">Edit Tanggal &amp; Waktu Lunas</h3>
+			<input type="hidden" id="modal-invoice-id" />
+			<div class="space-y-3">
+				<div>
+					<label class="block text-xs font-semibold text-slate-500 mb-1">Tanggal Lunas</label>
+					<input type="date" id="modal-date"
+						class="w-full rounded-lg border border-slate-300 px-3 py-2" />
+				</div>
+				<div>
+					<label class="block text-xs font-semibold text-slate-500 mb-1">Waktu Lunas</label>
+					<input type="time" id="modal-time"
+						class="w-full rounded-lg border border-slate-300 px-3 py-2" />
+				</div>
+			</div>
+			<div class="mt-5 flex gap-2 justify-end">
+				<button id="modal-cancel"
+					class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold hover:bg-slate-50">
+					Batal
+				</button>
+				<button id="modal-save"
+					class="rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90">
+					Simpan
+				</button>
+			</div>
+		</div>
+	</div>
 
 	<script>
 		import { createClient } from "@supabase/supabase-js";
@@ -151,7 +182,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 			let query = supabase
 				.from("invoices")
 				.select(
-					"id,status,total_amount,paid_amount,student_id,component_id,period_id,students(name),components(name),billing_periods(name)",
+					"id,status,total_amount,paid_amount,paid_off_at,student_id,component_id,period_id,students(name),components(name),billing_periods(name)",
 				)
 				.order("created_at", { ascending: false });
 
@@ -161,7 +192,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 			const { data, error } = await query;
 
 			if (error) {
-				body.innerHTML = `<tr><td class="px-3 py-3 text-red-600" colspan="7">${error.message}</td></tr>`;
+				body.innerHTML = `<tr><td class="px-3 py-3 text-red-600" colspan="8">${error.message}</td></tr>`;
 				return;
 			}
 
@@ -174,6 +205,22 @@ import AppLayout from "../../layouts/AppLayout.astro";
 					const label = STATUS_LABEL[item.status] ?? item.status;
 					const canEdit = item.status === "draft";
 					const canCancel = item.status === "draft" || item.status === "posted";
+					const isPaid = item.status === "paid";
+
+					// Format tanggal & waktu lunas
+					let tglLunas = "-";
+					let wktLunas = "";
+					if (item.paid_off_at) {
+						const dt = new Date(item.paid_off_at);
+						tglLunas = dt.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+						wktLunas = dt.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+					}
+
+					const paidOffCell = isPaid
+						? `<div class="text-xs font-medium text-slate-700">${tglLunas}</div>
+						   ${wktLunas ? `<div class="text-xs text-slate-500">${wktLunas}</div>` : ""}`
+						: `<span class="text-xs text-slate-400">-</span>`;
+
 					return `<tr class="border-b ${item.status === "cancelled" ? "opacity-50" : ""}">
 						<td class="px-3 py-2">${item.students?.name ?? "-"}</td>
 						<td class="px-3 py-2">${item.components?.name ?? "-"}</td>
@@ -183,9 +230,12 @@ import AppLayout from "../../layouts/AppLayout.astro";
 						<td class="px-3 py-2">
 							<span class="rounded-full px-2 py-0.5 text-xs font-medium ${badge}">${label}</span>
 						</td>
+						<td class="px-3 py-2">${paidOffCell}</td>
 						<td class="px-3 py-2 space-x-2 whitespace-nowrap">
 							${canEdit ? `<button data-id="${item.id}" data-action="edit" class="text-blue-600 hover:underline text-xs">Edit</button>` : ""}
 							${canCancel ? `<button data-id="${item.id}" data-action="cancel" class="text-red-600 hover:underline text-xs">Batalkan</button>` : ""}
+							${isPaid ? `<button data-id="${item.id}" data-action="edit-lunas" class="text-green-700 hover:underline text-xs">Edit Tgl</button>` : ""}
+							${isPaid ? `<a href="/laporan/mutasi" class="text-indigo-600 hover:underline text-xs">Mutasi</a>` : ""}
 						</td>
 					</tr>`;
 				})
@@ -220,6 +270,48 @@ import AppLayout from "../../layouts/AppLayout.astro";
 				if (error) return alert(error.message);
 				await loadInvoices();
 			}
+
+			if (action === "edit-lunas") {
+				const modal = document.getElementById("modal-lunas");
+				const modalId = document.getElementById("modal-invoice-id");
+				const modalDate = document.getElementById("modal-date");
+				const modalTime = document.getElementById("modal-time");
+				modalId.value = item.id;
+				if (item.paid_off_at) {
+					const dt = new Date(item.paid_off_at);
+					modalDate.value = dt.toISOString().slice(0, 10);
+					modalTime.value = dt.toTimeString().slice(0, 5);
+				} else {
+					const now = new Date();
+					modalDate.value = now.toISOString().slice(0, 10);
+					modalTime.value = now.toTimeString().slice(0, 5);
+				}
+				modal.classList.remove("hidden");
+			}
+		});
+
+		// Modal controls
+		document.getElementById("modal-cancel").addEventListener("click", () => {
+			document.getElementById("modal-lunas").classList.add("hidden");
+		});
+		document.getElementById("modal-lunas").addEventListener("click", (e) => {
+			if (e.target === e.currentTarget) e.currentTarget.classList.add("hidden");
+		});
+		document.getElementById("modal-save").addEventListener("click", async () => {
+			const modalId = document.getElementById("modal-invoice-id");
+			const modalDate = document.getElementById("modal-date");
+			const modalTime = document.getElementById("modal-time");
+			const id = modalId.value;
+			if (!id || !modalDate.value) return alert("Tanggal lunas wajib diisi.");
+			const timeStr = modalTime.value || "00:00";
+			const paidOffAt = new Date(`${modalDate.value}T${timeStr}:00`).toISOString();
+			const { error } = await supabase
+				.from("invoices")
+				.update({ paid_off_at: paidOffAt })
+				.eq("id", id);
+			if (error) return alert(error.message);
+			document.getElementById("modal-lunas").classList.add("hidden");
+			await loadInvoices();
 		});
 
 		filterStatus.addEventListener("change", loadInvoices);
