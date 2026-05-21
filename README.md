@@ -73,5 +73,5 @@ App jalan di `http://localhost:4321`.
 - Status pembayaran flow: `draft -> partial -> paid` (dan tabel `payments` juga support `done`).
 - Pembayaran akan update `paid_amount` dan `status` di tabel `invoices`.
 
-## Akun Supabase
+## Akun Supabase, github, netlify
 dpsbantenraya@gmail.com
