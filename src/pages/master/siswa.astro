@@ -8,6 +8,83 @@ import AppLayout from "../../layouts/AppLayout.astro";
 		<h2 class="text-2xl font-black sm:text-3xl">Siswa</h2>
 	</header>
 
+	<!-- Tombol Import & Download Template -->
+	<div class="mb-4 flex flex-wrap gap-2">
+		<button id="btn-open-import"
+			class="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition">
+			<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+				<path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/>
+			</svg>
+			Import Excel
+		</button>
+		<button id="btn-download-template"
+			class="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold hover:bg-slate-50 transition">
+			<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+				<path fill-rule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V8z" clip-rule="evenodd"/>
+			</svg>
+			Download Template
+		</button>
+	</div>
+
+	<!-- Modal Import Excel -->
+	<div id="import-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4">
+		<div class="w-full max-w-3xl rounded-2xl bg-white shadow-2xl">
+			<div class="flex items-center justify-between border-b px-6 py-4">
+				<h3 class="text-lg font-bold">Import Siswa dari Excel</h3>
+				<button id="btn-close-import" class="rounded-lg p-1.5 hover:bg-slate-100 transition">
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+						<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+					</svg>
+				</button>
+			</div>
+			<div class="px-6 py-5">
+				<!-- Step 1: Upload -->
+				<div id="import-step-upload">
+					<p class="mb-3 text-sm text-slate-600">Upload file Excel (.xlsx/.xls) dengan kolom: <strong>Nama, NIS, Jenjang, Kelas, Nama Orang Tua, No HP</strong></p>
+					<label class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 py-10 hover:border-emerald-500 hover:bg-emerald-50 transition">
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
+							<path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/>
+						</svg>
+						<span class="text-sm text-slate-500">Klik untuk pilih file atau drag & drop</span>
+						<input id="import-file" type="file" accept=".xlsx,.xls" class="hidden" />
+					</label>
+				</div>
+
+				<!-- Step 2: Preview -->
+				<div id="import-step-preview" class="hidden">
+					<div class="mb-3 flex items-center justify-between">
+						<p id="import-count" class="text-sm font-semibold text-slate-700"></p>
+						<button id="btn-back-upload" class="text-xs text-slate-500 hover:underline">← Ganti file</button>
+					</div>
+					<div id="import-errors" class="hidden mb-3 rounded-lg bg-red-50 border border-red-200 p-3 text-xs text-red-700"></div>
+					<div class="max-h-72 overflow-auto rounded-lg border border-slate-200">
+						<table class="min-w-full text-xs">
+							<thead class="sticky top-0 bg-slate-100 text-left text-[10px] uppercase text-slate-500">
+								<tr>
+									<th class="px-3 py-2">#</th>
+									<th class="px-3 py-2">Nama</th>
+									<th class="px-3 py-2">NIS</th>
+									<th class="px-3 py-2">Jenjang</th>
+									<th class="px-3 py-2">Kelas</th>
+									<th class="px-3 py-2">Orang Tua</th>
+									<th class="px-3 py-2">No HP</th>
+									<th class="px-3 py-2">Status</th>
+								</tr>
+							</thead>
+							<tbody id="import-preview-body"></tbody>
+						</table>
+					</div>
+				</div>
+			</div>
+			<div class="flex justify-end gap-2 border-t px-6 py-4">
+				<button id="btn-cancel-import" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold hover:bg-slate-50 transition">Batal</button>
+				<button id="btn-do-import" class="hidden rounded-lg bg-emerald-600 px-5 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-60 transition">
+					Simpan Semua
+				</button>
+			</div>
+		</div>
+	</div>
+
 	<section class="grid gap-4 lg:grid-cols-[420px_1fr]">
 		<form id="student-form" class="rounded-xl border border-slate-200 p-4">
 			<h3 id="form-title" class="text-lg font-bold">Tambah Siswa</h3>
@@ -67,12 +144,20 @@ import AppLayout from "../../layouts/AppLayout.astro";
 		<div class="rounded-xl border border-slate-200 p-4">
 			<div class="flex flex-wrap items-center justify-between gap-3 mb-3">
 				<h3 class="text-lg font-bold">Daftar Siswa</h3>
-				<div class="flex items-center gap-2">
+				<div class="flex flex-wrap items-center gap-2">
+					<select id="filter-jenjang"
+						class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white">
+						<option value="">Semua jenjang</option>
+						<option value="TK">TK</option>
+						<option value="SD">SD</option>
+						<option value="SMP">SMP</option>
+						<option value="SMU">SMU</option>
+					</select>
 					<input
 						id="search-input"
 						type="search"
 						placeholder="Cari nama siswa…"
-						class="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:border-[var(--brand)] focus:ring-1 focus:ring-[var(--brand)]/20 sm:w-48"
+						class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:border-[var(--brand)] focus:ring-1 focus:ring-[var(--brand)]/20 w-44"
 					/>
 					<span id="total-label" class="text-xs text-slate-500 whitespace-nowrap"></span>
 				</div>
@@ -83,6 +168,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 						<tr>
 							<th class="px-3 py-2">Nama</th>
 							<th class="px-3 py-2">NIS</th>
+							<th class="px-3 py-2">Jenjang</th>
 							<th class="px-3 py-2">Kelas</th>
 							<th class="px-3 py-2">Orang Tua</th>
 							<th class="px-3 py-2">HP</th>
@@ -121,12 +207,13 @@ import AppLayout from "../../layouts/AppLayout.astro";
 		const editIdInput = document.getElementById("edit-id");
 		const editGuardianId = document.getElementById("edit-guardian-id");
 		const btnCancel = document.getElementById("btn-cancel");
-		const classSelect = document.getElementById("f-class");
+		const classSelect = document.getElementById("f-class") as HTMLSelectElement;
 		const searchInput = document.getElementById("search-input");
 		const totalLabel = document.getElementById("total-label");
 		const pageLabel = document.getElementById("page-label");
 		const btnPrev = document.getElementById("btn-prev");
 		const btnNext = document.getElementById("btn-next");
+		const filterJenjangEl = document.getElementById("filter-jenjang") as HTMLSelectElement;
 
 		// Simpan data siswa untuk keperluan edit (hindari global onclick + JSON.stringify)
 		const studentMap = new Map();
@@ -135,8 +222,20 @@ import AppLayout from "../../layouts/AppLayout.astro";
 		const PAGE_SIZE = 10;
 		let currentPage = 0; // 0-based
 		let searchQuery = "";
+		let filterJenjang = "";
 
-		// ─── Load kelas dari tahun ajaran aktif ────────────────────────────────────
+		const JENJANG_BADGE: Record<string, string> = {
+			TK:  "bg-pink-100 text-pink-700",
+			SD:  "bg-blue-100 text-blue-700",
+			SMP: "bg-amber-100 text-amber-700",
+			SMU: "bg-purple-100 text-purple-700",
+		};
+		const jenjangBadge = (j: string) => {
+			const cls = JENJANG_BADGE[j] ?? "bg-slate-100 text-slate-500";
+			return j ? `<span class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${cls}">${j}</span>` : "-";
+		};
+
+		// ─── Load kelas dari tahun ajaran aktif (grouping per jenjang) ────────────
 		async function loadClasses() {
 			const { data: activeYear } = await supabase
 				.from("academic_years")
@@ -152,8 +251,9 @@ import AppLayout from "../../layouts/AppLayout.astro";
 
 			const { data: classes, error } = await supabase
 				.from("classes")
-				.select("id,name")
+				.select("id,name,jenjang")
 				.eq("academic_year_id", activeYear.id)
+				.order("jenjang")
 				.order("name");
 
 			if (error || !classes?.length) {
@@ -163,57 +263,86 @@ import AppLayout from "../../layouts/AppLayout.astro";
 			}
 
 			classSelect.disabled = false;
-			classSelect.innerHTML =
-				'<option value="">-- Pilih Kelas --</option>' +
-				classes.map((c) => `<option value="${c.id}">${c.name}</option>`).join("");
+
+			// Kelompokkan per jenjang sebagai optgroup
+			const groups: Record<string, typeof classes> = {};
+			classes.forEach((c) => {
+				const key = c.jenjang ?? "Lainnya";
+				if (!groups[key]) groups[key] = [];
+				groups[key].push(c);
+			});
+
+			const opts = Object.entries(groups).map(([jenjang, items]) =>
+				`<optgroup label="${jenjang}">` +
+				items.map((c) => `<option value="${c.id}">${c.name}</option>`).join("") +
+				`</optgroup>`
+			).join("");
+
+			classSelect.innerHTML = '<option value="">-- Pilih Kelas --</option>' + opts;
 		}
 
-		// ─── Load daftar siswa dengan pagination & pencarian ──────────────────────
+		// ─── Load daftar siswa dengan pagination, pencarian & filter jenjang ────────
 		async function loadStudents() {
 			const from = currentPage * PAGE_SIZE;
 			const to = from + PAGE_SIZE - 1;
 
 			let query = supabase
 				.from("students")
-				.select("id,name,nis,class_id,guardian_id,classes(name),guardians(name,phone)", { count: "exact" })
+				.select("id,name,nis,class_id,guardian_id,classes(name,jenjang),guardians(name,phone)", { count: "exact" })
 				.order("name")
 				.range(from, to);
 
-			if (searchQuery) {
-				query = query.ilike("name", `%${searchQuery}%`);
+			if (searchQuery) query = query.ilike("name", `%${searchQuery}%`);
+
+			// Filter jenjang: cari class_id yang jenjangnya cocok
+			if (filterJenjang) {
+				const { data: filteredClasses } = await supabase
+					.from("classes")
+					.select("id")
+					.eq("jenjang", filterJenjang);
+				const ids = (filteredClasses ?? []).map((c: any) => c.id);
+				if (!ids.length) {
+					body!.innerHTML = `<tr><td class="px-3 py-4 text-slate-400 text-center" colspan="7">Tidak ada siswa di jenjang ini.</td></tr>`;
+					totalLabel!.textContent = "0 siswa";
+					pageLabel!.textContent = "-";
+					(btnPrev as HTMLButtonElement).disabled = true;
+					(btnNext as HTMLButtonElement).disabled = true;
+					return;
+				}
+				query = query.in("class_id", ids);
 			}
 
 			const { data, error, count } = await query;
 
 			if (error) {
-				body.innerHTML = `<tr><td class="px-3 py-3 text-red-600" colspan="6">${error.message}</td></tr>`;
+				body!.innerHTML = `<tr><td class="px-3 py-3 text-red-600" colspan="7">${error.message}</td></tr>`;
 				return;
 			}
 
-			// Update label total & halaman
 			const total = count ?? 0;
 			const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-			totalLabel.textContent = `${total} siswa`;
-			pageLabel.textContent = `Halaman ${currentPage + 1} dari ${totalPages}`;
-			btnPrev.disabled = currentPage === 0;
-			btnNext.disabled = currentPage >= totalPages - 1;
+			totalLabel!.textContent = `${total} siswa`;
+			pageLabel!.textContent = `Halaman ${currentPage + 1} dari ${totalPages}`;
+			(btnPrev as HTMLButtonElement).disabled = currentPage === 0;
+			(btnNext as HTMLButtonElement).disabled = currentPage >= totalPages - 1;
 
 			studentMap.clear();
 			(data || []).forEach((s) => studentMap.set(s.id, s));
 
 			if (!data?.length) {
-				body.innerHTML = `<tr><td class="px-3 py-4 text-slate-400 text-center" colspan="6">Tidak ada data siswa.</td></tr>`;
+				body!.innerHTML = `<tr><td class="px-3 py-4 text-slate-400 text-center" colspan="7">Tidak ada data siswa.</td></tr>`;
 				return;
 			}
 
-			body.innerHTML = data
+			body!.innerHTML = data
 				.map(
 					(item) => `<tr class="border-b">
 						<td class="px-3 py-2">${item.name}</td>
 						<td class="px-3 py-2">${item.nis ?? "-"}</td>
-						<td class="px-3 py-2">${item.classes?.name ?? "-"}</td>
-						<td class="px-3 py-2">${item.guardians?.name ?? "-"}</td>
-						<td class="px-3 py-2">${item.guardians?.phone ?? "-"}</td>
+						<td class="px-3 py-2">${jenjangBadge((item.classes as any)?.jenjang ?? "")}</td>
+						<td class="px-3 py-2">${(item.classes as any)?.name ?? "-"}</td>
+						<td class="px-3 py-2">${(item.guardians as any)?.name ?? "-"}</td>
+						<td class="px-3 py-2">${(item.guardians as any)?.phone ?? "-"}</td>
 						<td class="px-3 py-2 space-x-2 whitespace-nowrap">
 							<button data-id="${item.id}" data-action="edit"
 								class="text-blue-600 hover:underline text-xs">Edit</button>
@@ -374,18 +503,245 @@ import AppLayout from "../../layouts/AppLayout.astro";
 			loadStudents();
 		});
 
-		let searchTimer;
-		searchInput.addEventListener("input", () => {
+		let searchTimer: ReturnType<typeof setTimeout>;
+		searchInput!.addEventListener("input", () => {
 			clearTimeout(searchTimer);
 			searchTimer = setTimeout(() => {
-				searchQuery = searchInput.value.trim();
+				searchQuery = (searchInput as HTMLInputElement).value.trim();
 				currentPage = 0;
 				loadStudents();
 			}, 350);
 		});
 
+		filterJenjangEl.addEventListener("change", () => {
+			filterJenjang = filterJenjangEl.value;
+			currentPage = 0;
+			loadStudents();
+		});
+
 		// ─── Init ──────────────────────────────────────────────────────────────────
 		await loadClasses();
 		await loadStudents();
+
+		// ══════════════════════════════════════════════════════════════════════════
+		// ─── IMPORT EXCEL ─────────────────────────────────────────────────────────
+		// ══════════════════════════════════════════════════════════════════════════
+
+		// Muat SheetJS dari CDN
+		await new Promise((resolve, reject) => {
+			const s = document.createElement("script");
+			s.src = "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";
+			s.onload = resolve; s.onerror = reject;
+			document.head.appendChild(s);
+		});
+
+		const importModal     = document.getElementById("import-modal")!;
+		const importFile      = document.getElementById("import-file") as HTMLInputElement;
+		const stepUpload      = document.getElementById("import-step-upload")!;
+		const stepPreview     = document.getElementById("import-step-preview")!;
+		const previewBody     = document.getElementById("import-preview-body")!;
+		const importCount     = document.getElementById("import-count")!;
+		const importErrors    = document.getElementById("import-errors")!;
+		const btnDoImport     = document.getElementById("btn-do-import")!;
+
+		let parsedRows: any[] = [];
+		let classMap: Record<string, string> = {}; // nama kelas (lowercase) → id
+
+		// Bangun classMap: key = "jenjang|nama" (lowercase), value = id
+		async function buildClassMap() {
+			const { data } = await supabase.from("classes").select("id,name,jenjang");
+			classMap = {};
+			(data || []).forEach((c: any) => {
+				const j = (c.jenjang ?? "").toLowerCase();
+				const n = c.name.trim().toLowerCase();
+				classMap[`${j}|${n}`] = c.id;
+				classMap[n] = c.id; // fallback tanpa jenjang
+			});
+		}
+
+		function openImportModal() {
+			importModal.classList.remove("hidden");
+			importModal.classList.add("flex");
+			stepUpload.classList.remove("hidden");
+			stepPreview.classList.add("hidden");
+			btnDoImport.classList.add("hidden");
+			importFile.value = "";
+			parsedRows = [];
+		}
+
+		function closeImportModal() {
+			importModal.classList.add("hidden");
+			importModal.classList.remove("flex");
+		}
+
+		document.getElementById("btn-open-import")!.addEventListener("click", async () => {
+			await buildClassMap();
+			openImportModal();
+		});
+		document.getElementById("btn-close-import")!.addEventListener("click", closeImportModal);
+		document.getElementById("btn-cancel-import")!.addEventListener("click", closeImportModal);
+		document.getElementById("btn-back-upload")!.addEventListener("click", () => {
+			stepUpload.classList.remove("hidden");
+			stepPreview.classList.add("hidden");
+			btnDoImport.classList.add("hidden");
+			importFile.value = "";
+		});
+
+		// ─── Parse file Excel ──────────────────────────────────────────────────────
+		importFile.addEventListener("change", () => {
+			const file = importFile.files?.[0];
+			if (!file) return;
+
+			const reader = new FileReader();
+			reader.onload = (e) => {
+				const XLSX = (window as any).XLSX;
+				const wb = XLSX.read(e.target!.result, { type: "array" });
+				const ws = wb.Sheets[wb.SheetNames[0]];
+				const raw: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+
+				// Cari baris header (baris pertama yang punya kata "nama")
+				let headerIdx = 0;
+				for (let i = 0; i < Math.min(5, raw.length); i++) {
+					if (raw[i].some((v: any) => String(v).toLowerCase().includes("nama"))) {
+						headerIdx = i; break;
+					}
+				}
+
+				const headers: string[] = raw[headerIdx].map((h: any) => String(h).trim().toLowerCase());
+				const col = (key: string) => headers.findIndex(h => h.includes(key));
+
+				const iNama    = col("nama");
+				const iNis     = col("nis");
+				const iJenjang = headers.findIndex(h => h.includes("jenjang") || h.includes("tingkat") || h.includes("level"));
+				const iKelas   = col("kelas");
+				const iOtua    = headers.findIndex(h => h.includes("orang") || h.includes("wali") || h.includes("ortu"));
+				const iHp      = headers.findIndex(h => h.includes("hp") || h.includes("telp") || h.includes("phone"));
+
+				parsedRows = [];
+				const errors: string[] = [];
+
+				for (let i = headerIdx + 1; i < raw.length; i++) {
+					const r = raw[i];
+					const nama = String(r[iNama] ?? "").trim();
+					if (!nama) continue; // skip baris kosong
+
+					const nis     = iNis     >= 0 ? String(r[iNis]     ?? "").trim() : "";
+					const jenjang = iJenjang >= 0 ? String(r[iJenjang] ?? "").trim().toUpperCase() : "";
+					const kelas   = iKelas   >= 0 ? String(r[iKelas]   ?? "").trim() : "";
+					const ortu    = iOtua    >= 0 ? String(r[iOtua]    ?? "").trim() : "";
+					const hp      = iHp      >= 0 ? String(r[iHp]      ?? "").trim() : "";
+
+					// Cari kelas: prioritaskan jenjang+nama, fallback nama saja
+					const lookupKey = jenjang ? `${jenjang.toLowerCase()}|${kelas.toLowerCase()}` : kelas.toLowerCase();
+					const classId   = classMap[lookupKey] ?? classMap[kelas.toLowerCase()] ?? null;
+
+					if (kelas && !classId) errors.push(`Baris ${i + 1}: Kelas "${jenjang ? jenjang + " " : ""}${kelas}" tidak ditemukan.`);
+
+					parsedRows.push({ nama, nis, jenjang, kelas, classId, ortu, hp, valid: !kelas || !!classId });
+				}
+
+				// Tampilkan preview
+				stepUpload.classList.add("hidden");
+				stepPreview.classList.remove("hidden");
+				importCount.textContent = `${parsedRows.length} siswa siap diimport`;
+
+				if (errors.length) {
+					importErrors.innerHTML = errors.join("<br>");
+					importErrors.classList.remove("hidden");
+				} else {
+					importErrors.classList.add("hidden");
+				}
+
+				previewBody.innerHTML = parsedRows.map((r, idx) => `
+					<tr class="border-b ${r.valid ? "" : "bg-red-50"}">
+						<td class="px-3 py-1.5 text-slate-400">${idx + 1}</td>
+						<td class="px-3 py-1.5 font-medium">${r.nama}</td>
+						<td class="px-3 py-1.5">${r.nis || "-"}</td>
+						<td class="px-3 py-1.5">${r.jenjang || "-"}</td>
+						<td class="px-3 py-1.5 ${!r.classId && r.kelas ? "text-red-600 font-semibold" : ""}">${r.kelas || "-"}</td>
+						<td class="px-3 py-1.5">${r.ortu || "-"}</td>
+						<td class="px-3 py-1.5">${r.hp || "-"}</td>
+						<td class="px-3 py-1.5">${r.valid ? '<span class="text-emerald-600">✓ OK</span>' : '<span class="text-red-500">⚠ Kelas ?</span>'}</td>
+					</tr>`).join("");
+
+				const validCount = parsedRows.filter(r => r.valid).length;
+				if (validCount > 0) {
+					btnDoImport.textContent = `Simpan ${validCount} Siswa`;
+					btnDoImport.classList.remove("hidden");
+				}
+			};
+			reader.readAsArrayBuffer(file);
+		});
+
+		// ─── Eksekusi import ke Supabase ───────────────────────────────────────────
+		btnDoImport.addEventListener("click", async () => {
+			const validRows = parsedRows.filter(r => r.valid);
+			if (!validRows.length) return;
+
+			(btnDoImport as HTMLButtonElement).disabled = true;
+			btnDoImport.textContent = "Menyimpan...";
+
+			let sukses = 0, gagal = 0;
+
+			for (const r of validRows) {
+				// Upsert guardian
+				let guardianId: string | null = null;
+				if (r.ortu) {
+					let existing: any = null;
+					if (r.hp) {
+						const { data } = await supabase.from("guardians").select("id").eq("phone", r.hp).maybeSingle();
+						existing = data;
+					}
+					if (existing) {
+						guardianId = existing.id;
+					} else {
+						const { data, error } = await supabase
+							.from("guardians")
+							.insert({ name: r.ortu, phone: r.hp || null })
+							.select("id").single();
+						if (!error) guardianId = data.id;
+					}
+				}
+
+				// Ambil academic_year_id dari kelas
+				let academicYearId: string | null = null;
+				if (r.classId) {
+					const { data: cls } = await supabase
+						.from("classes").select("academic_year_id").eq("id", r.classId).single();
+					academicYearId = cls?.academic_year_id ?? null;
+				}
+
+				const { error } = await supabase.from("students").insert({
+					name: r.nama,
+					nis: r.nis || null,
+					class_id: r.classId,
+					academic_year_id: academicYearId,
+					guardian_id: guardianId,
+				});
+
+				error ? gagal++ : sukses++;
+			}
+
+			(btnDoImport as HTMLButtonElement).disabled = false;
+			closeImportModal();
+			await loadStudents();
+			alert(`Import selesai: ${sukses} berhasil${gagal ? `, ${gagal} gagal` : ""}.`);
+		});
+
+		// ─── Download template Excel ───────────────────────────────────────────────
+		document.getElementById("btn-download-template")!.addEventListener("click", () => {
+			const XLSX = (window as any).XLSX;
+			if (!XLSX) return alert("Library belum siap, coba lagi.");
+			const ws = XLSX.utils.aoa_to_sheet([
+				["Nama", "NIS", "Jenjang", "Kelas", "Nama Orang Tua", "No HP"],
+				["Ahmad Fauzi",  "2024001", "SMP", "7A",  "Budi Santoso", "08123456789"],
+				["Siti Aisyah",  "2024002", "SMP", "7B",  "Dewi Rahayu",  "08234567890"],
+				["Budi Kecil",   "2024003", "SD",  "3A",  "Rahmat",        "08345678901"],
+				["Nur Aisyah",   "2024004", "TK",  "TK B","Sri Wahyuni",   "08456789012"],
+			]);
+			const wb = XLSX.utils.book_new();
+			XLSX.utils.book_append_sheet(wb, ws, "Siswa");
+			XLSX.writeFile(wb, "template-import-siswa.xlsx");
+		});
 	</script>
 </AppLayout>

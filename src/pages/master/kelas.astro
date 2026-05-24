@@ -25,11 +25,23 @@ import AppLayout from "../../layouts/AppLayout.astro";
 				>
 					<option value="">-- Memuat tahun ajaran... --</option>
 				</select>
+				<select
+					name="jenjang"
+					id="f-jenjang"
+					required
+					class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white"
+				>
+					<option value="">-- Pilih Jenjang --</option>
+					<option value="TK">TK</option>
+					<option value="SD">SD</option>
+					<option value="SMP">SMP</option>
+					<option value="SMU">SMU</option>
+				</select>
 				<input
 					name="name"
 					id="f-name"
 					required
-					placeholder="Nama kelas (contoh: X IPA 1)"
+					placeholder="Nama kelas (contoh: 7A, X IPA 1)"
 					class="w-full rounded-lg border border-slate-300 px-3 py-2"
 				/>
 			</div>
@@ -53,18 +65,25 @@ import AppLayout from "../../layouts/AppLayout.astro";
 		<div class="rounded-xl border border-slate-200 p-4">
 			<div class="flex flex-wrap items-center justify-between gap-3">
 				<h3 class="text-lg font-bold">Daftar Kelas</h3>
-				<select
-					id="filter-year"
-					class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white"
-				>
-					<option value="">Semua tahun ajaran</option>
-				</select>
+				<div class="flex flex-wrap gap-2">
+					<select id="filter-jenjang" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white">
+						<option value="">Semua jenjang</option>
+						<option value="TK">TK</option>
+						<option value="SD">SD</option>
+						<option value="SMP">SMP</option>
+						<option value="SMU">SMU</option>
+					</select>
+					<select id="filter-year" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white">
+						<option value="">Semua tahun ajaran</option>
+					</select>
+				</div>
 			</div>
 			<div class="mt-3 overflow-x-auto">
 				<table class="min-w-full text-sm">
 					<thead class="border-b bg-slate-50 text-left text-xs uppercase text-slate-500">
 						<tr>
 							<th class="px-3 py-2">Nama Kelas</th>
+							<th class="px-3 py-2">Jenjang</th>
 							<th class="px-3 py-2">Tahun Ajaran</th>
 							<th class="px-3 py-2">Aksi</th>
 						</tr>
@@ -90,13 +109,26 @@ import AppLayout from "../../layouts/AppLayout.astro";
 		const body = document.getElementById("classes-body");
 		const yearSelect = document.getElementById("f-year");
 		const filterYear = document.getElementById("filter-year");
+		const filterJenjang = document.getElementById("filter-jenjang");
 		const classMap = new Map();
+
+		const JENJANG_BADGE: Record<string, string> = {
+			TK:  "bg-pink-100 text-pink-700",
+			SD:  "bg-blue-100 text-blue-700",
+			SMP: "bg-amber-100 text-amber-700",
+			SMU: "bg-purple-100 text-purple-700",
+		};
 
 		function resetForm() {
 			form.reset();
 			editIdInput.value = "";
 			formTitle.textContent = "Tambah Kelas";
 			btnCancel.classList.add("hidden");
+		}
+
+		function jenjangBadge(j: string) {
+			const cls = JENJANG_BADGE[j] ?? "bg-slate-100 text-slate-500";
+			return j ? `<span class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${cls}">${j}</span>` : "-";
 		}
 
 		async function loadYears() {
@@ -127,22 +159,25 @@ import AppLayout from "../../layouts/AppLayout.astro";
 		}
 
 		async function loadClasses() {
-			const filterVal = filterYear.value;
+			const filterVal = (filterYear as HTMLSelectElement).value;
+			const filterJenjangVal = (filterJenjang as HTMLSelectElement).value;
 			let query = supabase
 				.from("classes")
-				.select("id,name,academic_year_id,academic_years(name,is_active)")
+				.select("id,name,jenjang,academic_year_id,academic_years(name,is_active)")
+				.order("jenjang")
 				.order("name");
 			if (filterVal) query = query.eq("academic_year_id", filterVal);
+			if (filterJenjangVal) query = query.eq("jenjang", filterJenjangVal);
 
 			const { data, error } = await query;
 
 			if (error) {
-				body.innerHTML = `<tr><td class="px-3 py-3 text-red-600" colspan="3">${error.message}</td></tr>`;
+				body.innerHTML = `<tr><td class="px-3 py-3 text-red-600" colspan="4">${error.message}</td></tr>`;
 				return;
 			}
 
 			if (!data?.length) {
-				body.innerHTML = `<tr><td class="px-3 py-4 text-center text-slate-400" colspan="3">Belum ada kelas.</td></tr>`;
+				body.innerHTML = `<tr><td class="px-3 py-4 text-center text-slate-400" colspan="4">Belum ada kelas.</td></tr>`;
 				return;
 			}
 
@@ -153,9 +188,10 @@ import AppLayout from "../../layouts/AppLayout.astro";
 				.map(
 					(item) => `<tr class="border-b">
 						<td class="px-3 py-2 font-medium">${item.name}</td>
+						<td class="px-3 py-2">${jenjangBadge(item.jenjang)}</td>
 						<td class="px-3 py-2">
-							${item.academic_years?.name ?? "-"}
-							${item.academic_years?.is_active ? '<span class="ml-1 rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] text-green-700">aktif</span>' : ""}
+							${(item.academic_years as any)?.name ?? "-"}
+							${(item.academic_years as any)?.is_active ? '<span class="ml-1 rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] text-green-700">aktif</span>' : ""}
 						</td>
 						<td class="px-3 py-2 space-x-2 whitespace-nowrap">
 							<button data-id="${item.id}" data-action="edit"
@@ -177,10 +213,11 @@ import AppLayout from "../../layouts/AppLayout.astro";
 
 			if (action === "edit") {
 				formTitle.textContent = "Edit Kelas";
-				editIdInput.value = item.id;
-				document.getElementById("f-year").value = item.academic_year_id ?? "";
-				document.getElementById("f-name").value = item.name;
-				btnCancel.classList.remove("hidden");
+				(editIdInput as HTMLInputElement).value = item.id;
+				(document.getElementById("f-year") as HTMLSelectElement).value = item.academic_year_id ?? "";
+				(document.getElementById("f-jenjang") as HTMLSelectElement).value = item.jenjang ?? "";
+				(document.getElementById("f-name") as HTMLInputElement).value = item.name;
+				btnCancel!.classList.remove("hidden");
 				window.scrollTo({ top: 0, behavior: "smooth" });
 			}
 
@@ -194,6 +231,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 
 		btnCancel.addEventListener("click", resetForm);
 		filterYear.addEventListener("change", loadClasses);
+		filterJenjang.addEventListener("change", loadClasses);
 
 		form.addEventListener("submit", async (e) => {
 			e.preventDefault();
@@ -201,6 +239,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 			const isEdit = !!editIdInput.value;
 			const payload = {
 				name: fd.get("name"),
+				jenjang: fd.get("jenjang") || null,
 				academic_year_id: fd.get("academic_year_id"),
 			};
 
