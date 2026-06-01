@@ -40,6 +40,7 @@ create table public.classes (
 	id uuid primary key default gen_random_uuid(),
 	academic_year_id uuid not null references public.academic_years(id) on delete cascade,
 	name text not null,
+	jenjang text,
 	created_at timestamptz not null default now(),
 	unique (academic_year_id, name)
 );
@@ -99,6 +100,7 @@ create table public.invoices (
 	status text not null default 'draft' check (status in ('draft', 'posted', 'paid', 'cancelled')),
 	total_amount numeric(14,2) not null default 0,
 	paid_amount numeric(14,2) not null default 0,
+	paid_off_at timestamptz,
 	created_at timestamptz not null default now(),
 	updated_at timestamptz not null default now(),
 	unique (student_id, component_id, period_id)
