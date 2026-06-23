@@ -148,10 +148,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 					<select id="filter-jenjang"
 						class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white">
 						<option value="">Semua jenjang</option>
-						<option value="TK">TK</option>
-						<option value="SD">SD</option>
-						<option value="SMP">SMP</option>
-						<option value="SMU">SMU</option>
+						<option value="SMK">SMK</option>
 					</select>
 					<input
 						id="search-input"
@@ -225,10 +222,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 		let filterJenjang = "";
 
 		const JENJANG_BADGE: Record<string, string> = {
-			TK:  "bg-pink-100 text-pink-700",
-			SD:  "bg-blue-100 text-blue-700",
-			SMP: "bg-amber-100 text-amber-700",
-			SMU: "bg-purple-100 text-purple-700",
+			SMK: "bg-purple-100 text-purple-700",
 		};
 		const jenjangBadge = (j: string) => {
 			const cls = JENJANG_BADGE[j] ?? "bg-slate-100 text-slate-500";
@@ -734,10 +728,10 @@ import AppLayout from "../../layouts/AppLayout.astro";
 			if (!XLSX) return alert("Library belum siap, coba lagi.");
 			const ws = XLSX.utils.aoa_to_sheet([
 				["Nama", "NIS", "Jenjang", "Kelas", "Nama Orang Tua", "No HP"],
-				["Ahmad Fauzi",  "2024001", "SMP", "7A",  "Budi Santoso", "08123456789"],
-				["Siti Aisyah",  "2024002", "SMP", "7B",  "Dewi Rahayu",  "08234567890"],
-				["Budi Kecil",   "2024003", "SD",  "3A",  "Rahmat",        "08345678901"],
-				["Nur Aisyah",   "2024004", "TK",  "TK B","Sri Wahyuni",   "08456789012"],
+				["Ahmad Fauzi",  "2024001", "SMK", "X IPA 1",  "Budi Santoso", "08123456789"],
+				["Siti Aisyah",  "2024002", "SMK", "X IPA 2",  "Dewi Rahayu",  "08234567890"],
+				["Budi Santoso", "2024003", "SMK", "XI IPS 1", "Rahmat",        "08345678901"],
+				["Dewi Lestari", "2024004", "SMK", "XI IPS 2","Sri Wahyuni",   "08456789012"],
 			]);
 			const wb = XLSX.utils.book_new();
 			XLSX.utils.book_append_sheet(wb, ws, "Siswa");

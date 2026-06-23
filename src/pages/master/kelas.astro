@@ -32,10 +32,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 					class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white"
 				>
 					<option value="">-- Pilih Jenjang --</option>
-					<option value="TK">TK</option>
-					<option value="SD">SD</option>
-					<option value="SMP">SMP</option>
-					<option value="SMU">SMU</option>
+					<option value="SMK">SMK</option>
 				</select>
 				<input
 					name="name"
@@ -68,10 +65,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 				<div class="flex flex-wrap gap-2">
 					<select id="filter-jenjang" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white">
 						<option value="">Semua jenjang</option>
-						<option value="TK">TK</option>
-						<option value="SD">SD</option>
-						<option value="SMP">SMP</option>
-						<option value="SMU">SMU</option>
+						<option value="SMK">SMK</option>
 					</select>
 					<select id="filter-year" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white">
 						<option value="">Semua tahun ajaran</option>
@@ -113,10 +107,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 		const classMap = new Map();
 
 		const JENJANG_BADGE: Record<string, string> = {
-			TK:  "bg-pink-100 text-pink-700",
-			SD:  "bg-blue-100 text-blue-700",
-			SMP: "bg-amber-100 text-amber-700",
-			SMU: "bg-purple-100 text-purple-700",
+			SMK: "bg-purple-100 text-purple-700",
 		};
 
 		function resetForm() {

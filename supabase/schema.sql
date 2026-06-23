@@ -115,6 +115,10 @@ create table public.payments (
 	amount_total numeric(14,2) not null default 0,
 	amount_paid numeric(14,2) not null default 0,
 	amount_due numeric(14,2) not null default 0,
+	is_voided boolean not null default false,
+	void_reason text,
+	voided_by text,
+	voided_at timestamptz,
 	created_at timestamptz not null default now()
 );
 
