@@ -13,17 +13,21 @@ import AppLayout from "../../layouts/AppLayout.astro";
 			<h3 id="form-title" class="text-lg font-bold">Buat Tagihan</h3>
 			<input type="hidden" id="edit-id" />
 			<div class="mt-4 space-y-3">
-				<select name="student_id" id="f-student" required
+				<select name="class_id" id="f-class" required
 					class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white">
-					<option value="">Pilih siswa</option>
+					<option value="">Pilih kelas</option>
 				</select>
-				<select name="component_id" id="f-component" required
-					class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white">
-					<option value="">Pilih komponen</option>
+				<select name="student_id" id="f-student" required disabled
+					class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white disabled:bg-slate-100 disabled:cursor-not-allowed">
+					<option value="">Pilih kelas terlebih dahulu</option>
 				</select>
 				<select name="period_id" id="f-period" required
 					class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white">
 					<option value="">Pilih periode</option>
+				</select>
+				<select name="component_id" id="f-component" required
+					class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white">
+					<option value="">Pilih komponen</option>
 				</select>
 				<input name="total_amount" id="f-amount" type="number" min="0" step="1000" required
 					placeholder="Nominal tagihan"
@@ -48,14 +52,20 @@ import AppLayout from "../../layouts/AppLayout.astro";
 		<div class="rounded-xl border border-slate-200 p-4">
 			<div class="mb-3 flex flex-wrap items-center justify-between gap-2">
 				<h3 class="text-lg font-bold">Daftar Tagihan</h3>
-				<select id="filter-status"
-					class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white">
-					<option value="">Semua status</option>
-					<option value="draft">Draft</option>
-					<option value="posted">Ditagih</option>
-					<option value="paid">Lunas</option>
-					<option value="cancelled">Dibatalkan</option>
-				</select>
+				<div class="flex gap-2">
+					<select id="filter-class"
+						class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white">
+						<option value="">Semua Kelas</option>
+					</select>
+					<select id="filter-status"
+						class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white">
+						<option value="">Semua status</option>
+						<option value="draft">Draft</option>
+						<option value="posted">Ditagih</option>
+						<option value="paid">Lunas</option>
+						<option value="cancelled">Dibatalkan</option>
+					</select>
+				</div>
 			</div>
 			<div class="overflow-x-auto">
 				<table class="min-w-full text-sm">
@@ -122,6 +132,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 		const btnCancel = document.getElementById("btn-cancel");
 		const body = document.getElementById("invoices-body");
 		const filterStatus = document.getElementById("filter-status");
+		const filterClass = document.getElementById("filter-class");
 
 		const STATUS_BADGE = {
 			draft: "bg-slate-100 text-slate-600",
@@ -141,40 +152,72 @@ import AppLayout from "../../layouts/AppLayout.astro";
 			btnCancel.classList.add("hidden");
 		}
 
+		let allStudents = [];
+		let allClasses = [];
+
 		async function loadSelectors() {
-			const [students, components, periods] = await Promise.all([
-				supabase.from("students").select("id,name").order("name"),
+			const [students, components, periods, classes] = await Promise.all([
+				supabase.from("students").select("id,name,class_id").order("name"),
 				supabase.from("components").select("id,name,default_amount").eq("is_active", true).order("name"),
 				supabase
 					.from("billing_periods")
 					.select("id,name,start_date")
 					.order("start_date", { ascending: false }),
+				supabase.from("classes").select("id,name").order("name"),
 			]);
 
 			if (students.error) return alert(students.error.message);
 			if (components.error) return alert(components.error.message);
 			if (periods.error) return alert(periods.error.message);
+			if (classes.error) return alert(classes.error.message);
 
 			componentData = components.data || [];
+			allStudents = students.data || [];
+			allClasses = classes.data || [];
 
-			const fStudent = document.getElementById("f-student");
-			const fComponent = document.getElementById("f-component");
-			const fPeriod = document.getElementById("f-period");
+			const fStudent = document.getElementById("f-student") as HTMLSelectElement;
+			const fComponent = document.getElementById("f-component") as HTMLSelectElement;
+			const fPeriod = document.getElementById("f-period") as HTMLSelectElement;
+			const fClass = document.getElementById("f-class") as HTMLSelectElement;
 
-			fStudent.innerHTML =
-				'<option value="">Pilih siswa</option>' +
-				(students.data || []).map((x) => `<option value="${x.id}">${x.name}</option>`).join("");
+			// Populate filter class dropdown
+			if (filterClass) {
+				filterClass.innerHTML =
+					'<option value="">Semua Kelas</option>' +
+					allClasses.map((x: any) => `<option value="${x.id}">${x.name}</option>`).join("");
+			}
+
+			// Populate class dropdown
+			fClass.innerHTML =
+				'<option value="">Pilih kelas</option>' +
+				allClasses.map((x: any) => `<option value="${x.id}">${x.name}</option>`).join("");
+
+			// When class changes, enable student dropdown
+			fClass.addEventListener("change", () => {
+				const classId = fClass.value;
+				if (classId) {
+					fStudent.disabled = false;
+					const filtered = allStudents.filter((s: any) => s.class_id === classId);
+					fStudent.innerHTML =
+						'<option value="">Pilih siswa</option>' +
+						filtered.map((x: any) => `<option value="${x.id}">${x.name}</option>`).join("");
+				} else {
+					fStudent.disabled = true;
+					fStudent.innerHTML = '<option value="">Pilih kelas terlebih dahulu</option>';
+				}
+			});
+
 			fComponent.innerHTML =
 				'<option value="">Pilih komponen</option>' +
 				componentData.map((x) => `<option value="${x.id}">${x.name}</option>`).join("");
 			fPeriod.innerHTML =
 				'<option value="">Pilih periode</option>' +
-				(periods.data || []).map((x) => `<option value="${x.id}">${x.name}</option>`).join("");
+				(periods.data || []).map((x: any) => `<option value="${x.id}">${x.name}</option>`).join("");
 
 			// Auto-isi nominal dari default komponen
 			fComponent.addEventListener("change", () => {
-				const found = componentData.find((x) => x.id === fComponent.value);
-				if (found) document.getElementById("f-amount").value = String(found.default_amount || 0);
+				const found = componentData.find((x: any) => x.id === fComponent.value);
+				if (found) (document.getElementById("f-amount") as HTMLInputElement).value = String(found.default_amount || 0);
 			});
 		}
 
@@ -182,7 +225,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 			let query = supabase
 				.from("invoices")
 				.select(
-					"id,status,total_amount,paid_amount,paid_off_at,student_id,component_id,period_id,students(name),components(name),billing_periods(name)",
+					"id,status,total_amount,paid_amount,paid_off_at,student_id,component_id,period_id,students(name,class_id,classes(name)),components(name),billing_periods(name)",
 				)
 				.order("created_at", { ascending: false });
 
@@ -197,10 +240,18 @@ import AppLayout from "../../layouts/AppLayout.astro";
 			}
 
 			invoiceMap.clear();
-			(data || []).forEach((inv) => invoiceMap.set(inv.id, inv));
+			
+			// Client-side filter by class
+			let filteredData = data || [];
+			const classFilter = filterClass?.value;
+			if (classFilter) {
+				filteredData = filteredData.filter((item: any) => item.students?.class_id === classFilter);
+			}
+			
+			filteredData.forEach((inv: any) => invoiceMap.set(inv.id, inv));
 
-			body.innerHTML = (data || [])
-				.map((item) => {
+			body.innerHTML = filteredData
+				.map((item: any) => {
 					const badge = STATUS_BADGE[item.status] ?? "bg-slate-100 text-slate-600";
 					const label = STATUS_LABEL[item.status] ?? item.status;
 					const canEdit = item.status === "draft";
@@ -315,6 +366,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 		});
 
 		filterStatus.addEventListener("change", loadInvoices);
+		filterClass?.addEventListener("change", loadInvoices);
 		btnCancel.addEventListener("click", resetForm);
 
 		form.addEventListener("submit", async (e) => {
