@@ -1,0 +1,447 @@
+---
+import AppLayout from "../../layouts/AppLayout.astro";
+---
+
+<AppLayout title="Generate Tagihan Massal">
+  <header class="mb-6">
+    <p class="text-sm font-semibold uppercase tracking-[0.15em] text-[var(--brand)]">Transaksi</p>
+    <h2 class="text-2xl font-black sm:text-3xl">Generate Tagihan Massal</h2>
+    <p class="mt-1 text-sm text-slate-500">
+      Buat tagihan sekaligus untuk seluruh siswa berdasarkan konfigurasi biaya per kelas.
+    </p>
+  </header>
+
+  <section class="grid gap-4 lg:grid-cols-[1fr_2fr]">
+    <!-- Panel kontrol -->
+    <div class="rounded-xl border border-slate-200 p-4">
+      <h3 class="font-bold text-lg">Parameter Generate</h3>
+
+      <div class="mt-4 space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">Tahun Ajaran</label>
+          <select id="f-year" required class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white">
+            <option value="">-- Memuat... --</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">Periode Tagihan</label>
+          <select id="f-period" required class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white">
+            <option value="">-- Pilih Tahun Ajaran dulu --</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">Kelas (bisa pilih banyak)</label>
+          <div id="class-checkboxes" class="max-h-48 overflow-y-auto rounded-lg border border-slate-300 p-3 space-y-1">
+            <p class="text-xs text-slate-400">Pilih tahun ajaran dulu...</p>
+          </div>
+          <div class="mt-1 flex gap-2">
+            <button id="btn-select-all" class="text-xs text-[var(--brand)] hover:underline">Pilih Semua</button>
+            <button id="btn-deselect-all" class="text-xs text-slate-500 hover:underline">Bersihkan</button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">Komponen Pembayaran (bisa pilih banyak)</label>
+          <div id="component-checkboxes" class="max-h-48 overflow-y-auto rounded-lg border border-slate-300 p-3 space-y-1">
+            <p class="text-xs text-slate-400">Memuat komponen...</p>
+          </div>
+          <div class="mt-1 flex gap-2">
+            <button id="btn-select-all-comp" class="text-xs text-[var(--brand)] hover:underline">Pilih Semua</button>
+            <button id="btn-deselect-all-comp" class="text-xs text-slate-500 hover:underline">Bersihkan</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-4">
+        <button id="btn-preview" class="w-full rounded-lg bg-blue-600 px-4 py-2.5 font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
+          🔍 Preview Tagihan
+        </button>
+      </div>
+
+      <div id="stats-box" class="mt-4 hidden rounded-lg bg-slate-50 border border-slate-200 p-3 text-sm">
+        <p class="font-semibold">Ringkasan Preview:</p>
+        <p id="stats-siswa" class="text-slate-600">Siswa: -</p>
+        <p id="stats-invoice" class="text-slate-600">Tagihan: -</p>
+        <p id="stats-total" class="text-slate-600">Total nominal: -</p>
+      </div>
+
+      <div class="mt-3">
+        <button id="btn-generate" class="hidden w-full rounded-lg bg-green-600 px-4 py-3 font-bold text-white hover:bg-green-700 disabled:opacity-50">
+          ✅ Generate Tagihan Sekarang
+        </button>
+      </div>
+
+      <div id="generate-status" class="mt-3 text-sm text-center"></div>
+    </div>
+
+    <!-- Panel Preview -->
+    <div class="rounded-xl border border-slate-200 p-4">
+      <h3 class="font-bold text-lg">Preview Daftar Tagihan</h3>
+      <div id="preview-container" class="mt-3 overflow-x-auto">
+        <p class="text-sm text-slate-400">Isi parameter di sebelah kiri, lalu klik "Preview Tagihan".</p>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    import { createClient } from "@supabase/supabase-js";
+
+    const supabase = createClient(
+      import.meta.env.PUBLIC_SUPABASE_URL,
+      import.meta.env.PUBLIC_SUPABASE_ANON_KEY,
+    );
+
+    const yearSelect = document.getElementById("f-year") as HTMLSelectElement;
+    const periodSelect = document.getElementById("f-period") as HTMLSelectElement;
+    const classCheckboxes = document.getElementById("class-checkboxes") as HTMLDivElement;
+    const componentCheckboxes = document.getElementById("component-checkboxes") as HTMLDivElement;
+    const btnPreview = document.getElementById("btn-preview") as HTMLButtonElement;
+    const btnGenerate = document.getElementById("btn-generate") as HTMLButtonElement;
+    const statsBox = document.getElementById("stats-box") as HTMLDivElement;
+    const statsSiswa = document.getElementById("stats-siswa") as HTMLParagraphElement;
+    const statsInvoice = document.getElementById("stats-invoice") as HTMLParagraphElement;
+    const statsTotal = document.getElementById("stats-total") as HTMLParagraphElement;
+    const previewContainer = document.getElementById("preview-container") as HTMLDivElement;
+    const generateStatus = document.getElementById("generate-status") as HTMLDivElement;
+
+    let allClasses: any[] = [];
+    let allComponents: any[] = [];
+    let previewData: any[] = []; // hasil preview
+
+    const formatRupiah = (val: number) =>
+      new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(val);
+
+    // Load tahun ajaran
+    async function loadYears() {
+      const { data } = await supabase.from("academic_years").select("id,name,is_active").order("name");
+      if (!data?.length) {
+        yearSelect.innerHTML = '<option value="">-- Belum ada tahun ajaran --</option>';
+        return;
+      }
+      yearSelect.innerHTML = '<option value="">-- Pilih Tahun Ajaran --</option>' +
+        data.map(y => `<option value="${y.id}">${y.name}${y.is_active ? " (aktif)" : ""}</option>`).join("");
+      const active = data.find(y => y.is_active);
+      if (active) yearSelect.value = active.id;
+    }
+
+    // Load periode berdasarkan tahun ajaran
+    async function loadPeriods(yearId: string) {
+      const { data } = await supabase
+        .from("billing_periods")
+        .select("id,name,code,start_date,end_date")
+        .eq("academic_year_id", yearId)
+        .order("start_date");
+      if (!data?.length) {
+        periodSelect.innerHTML = '<option value="">-- Tidak ada periode --</option>';
+        return;
+      }
+      periodSelect.innerHTML = '<option value="">-- Pilih Periode --</option>' +
+        data.map(p => `<option value="${p.id}">${p.name} (${p.code}) - ${p.start_date} s/d ${p.end_date}</option>`).join("");
+    }
+
+    // Load kelas
+    async function loadClasses(yearId: string) {
+      const { data } = await supabase
+        .from("classes")
+        .select("id,name,angkatan,jenjang")
+        .eq("academic_year_id", yearId)
+        .order("angkatan", { ascending: false })
+        .order("name");
+      allClasses = data || [];
+
+      if (!allClasses.length) {
+        classCheckboxes.innerHTML = '<p class="text-xs text-slate-400">Tidak ada kelas untuk tahun ajaran ini.</p>';
+        return;
+      }
+
+      classCheckboxes.innerHTML = allClasses.map(c => `
+        <label class="flex items-center gap-2 text-sm cursor-pointer hover:bg-slate-50 rounded px-1 py-0.5">
+          <input type="checkbox" class="class-cb rounded" value="${c.id}">
+          <span>${c.name} <span class="text-[10px] text-slate-400">${c.angkatan ? "Angk. " + c.angkatan : ""}</span></span>
+        </label>
+      `).join("");
+
+      document.getElementById("btn-select-all")!.addEventListener("click", () => {
+        document.querySelectorAll(".class-cb").forEach(cb => (cb as HTMLInputElement).checked = true);
+      });
+      document.getElementById("btn-deselect-all")!.addEventListener("click", () => {
+        document.querySelectorAll(".class-cb").forEach(cb => (cb as HTMLInputElement).checked = false);
+      });
+    }
+
+    // Load komponen
+    async function loadComponents() {
+      const { data } = await supabase
+        .from("components")
+        .select("id,name,payment_type,default_amount")
+        .eq("is_active", true)
+        .order("name");
+      allComponents = data || [];
+
+      if (!allComponents.length) {
+        componentCheckboxes.innerHTML = '<p class="text-xs text-slate-400">Tidak ada komponen aktif.</p>';
+        return;
+      }
+
+      componentCheckboxes.innerHTML = allComponents.map(c => `
+        <label class="flex items-center gap-2 text-sm cursor-pointer hover:bg-slate-50 rounded px-1 py-0.5">
+          <input type="checkbox" class="comp-cb rounded" value="${c.id}">
+          <span>${c.name} <span class="text-[10px] text-slate-400">(${c.payment_type})</span></span>
+        </label>
+      `).join("");
+
+      document.getElementById("btn-select-all-comp")!.addEventListener("click", () => {
+        document.querySelectorAll(".comp-cb").forEach(cb => (cb as HTMLInputElement).checked = true);
+      });
+      document.getElementById("btn-deselect-all-comp")!.addEventListener("click", () => {
+        document.querySelectorAll(".comp-cb").forEach(cb => (cb as HTMLInputElement).checked = false);
+      });
+    }
+
+    function getSelectedClassIds(): string[] {
+      const cbs = document.querySelectorAll(".class-cb:checked") as NodeListOf<HTMLInputElement>;
+      return Array.from(cbs).map(cb => cb.value);
+    }
+
+    function getSelectedComponentIds(): string[] {
+      const cbs = document.querySelectorAll(".comp-cb:checked") as NodeListOf<HTMLInputElement>;
+      return Array.from(cbs).map(cb => cb.value);
+    }
+
+    async function doPreview() {
+      const yearId = yearSelect.value;
+      const periodId = periodSelect.value;
+      const classIds = getSelectedClassIds();
+      const componentIds = getSelectedComponentIds();
+
+      if (!yearId || !periodId) {
+        previewContainer.innerHTML = '<p class="text-sm text-red-500">Pilih Tahun Ajaran dan Periode terlebih dahulu.</p>';
+        return;
+      }
+      if (!classIds.length) {
+        previewContainer.innerHTML = '<p class="text-sm text-red-500">Pilih minimal satu kelas.</p>';
+        return;
+      }
+      if (!componentIds.length) {
+        previewContainer.innerHTML = '<p class="text-sm text-red-500">Pilih minimal satu komponen.</p>';
+        return;
+      }
+
+      btnPreview.disabled = true;
+      btnPreview.textContent = "⏳ Memproses...";
+      previewContainer.innerHTML = '<p class="text-sm text-slate-400">Mengumpulkan data...</p>';
+
+      // 1. Ambil semua siswa di kelas terpilih
+      const { data: students, error: errS } = await supabase
+        .from("students")
+        .select("id,name,nis,class_id,angkatan,classes(name,angkatan)")
+        .in("class_id", classIds);
+
+      if (errS) {
+        previewContainer.innerHTML = `<p class="text-sm text-red-500">Error: ${errS.message}</p>`;
+        btnPreview.disabled = false;
+        btnPreview.textContent = "🔍 Preview Tagihan";
+        return;
+      }
+
+      if (!students?.length) {
+        previewContainer.innerHTML = '<p class="text-sm text-slate-400">Tidak ada siswa di kelas terpilih.</p>';
+        btnPreview.disabled = false;
+        btnPreview.textContent = "🔍 Preview Tagihan";
+        btnGenerate.classList.add("hidden");
+        statsBox.classList.add("hidden");
+        return;
+      }
+
+      // 2. Ambil fee_configs berbasis angkatan untuk komponen terpilih
+      // Kumpulkan angkatan unik dari siswa
+      const angkatanSet = new Set<number>();
+      students.forEach((s: any) => {
+        const angkatan = s.angkatan ?? s.classes?.angkatan;
+        if (angkatan) angkatanSet.add(angkatan);
+      });
+      const angkatanList = Array.from(angkatanSet);
+
+      let feeMap: Record<string, number> = {};
+      if (angkatanList.length > 0) {
+        const { data: feeConfigs } = await supabase
+          .from("fee_configs")
+          .select("angkatan,component_id,amount")
+          .eq("academic_year_id", yearId)
+          .is("class_id", null)
+          .in("angkatan", angkatanList)
+          .in("component_id", componentIds);
+
+        (feeConfigs || []).forEach((f: any) => {
+          feeMap[`${f.angkatan}_${f.component_id}`] = Number(f.amount);
+        });
+      }
+
+      // 3. Cek invoice yang sudah ada (student_id, component_id, period_id)
+      const { data: existingInvoices } = await supabase
+        .from("invoices")
+        .select("student_id,component_id,period_id,id,status,total_amount")
+        .eq("period_id", periodId)
+        .in("student_id", students.map(s => s.id))
+        .in("component_id", componentIds);
+
+      const existingSet = new Set<string>();
+      (existingInvoices || []).forEach(inv => {
+        existingSet.add(`${inv.student_id}_${inv.component_id}_${inv.period_id}`);
+      });
+
+      // 4. Build preview data
+      previewData = [];
+      let totalNominal = 0;
+
+      students.forEach(student => {
+        componentIds.forEach(compId => {
+          const key = `${student.id}_${compId}_${periodId}`;
+          const comp = allComponents.find(c => c.id === compId);
+          const studentAngkatan = student.angkatan ?? (student as any).classes?.angkatan;
+          const feeAmount = feeMap[`${studentAngkatan}_${compId}`] ?? Number(comp?.default_amount ?? 0);
+          const alreadyExists = existingSet.has(key);
+
+          previewData.push({
+            student_id: student.id,
+            student_name: student.name,
+            nis: student.nis,
+            kelas: (student as any).classes?.name ?? "-",
+            angkatan: (student as any).classes?.angkatan ?? "-",
+            component_id: compId,
+            component_name: comp?.name ?? "-",
+            amount: feeAmount,
+            period_id: periodId,
+            alreadyExists,
+          });
+
+          if (!alreadyExists) totalNominal += feeAmount;
+        });
+      });
+
+      // 5. Render preview
+      const newInvoices = previewData.filter(p => !p.alreadyExists);
+      const skipInvoices = previewData.filter(p => p.alreadyExists);
+
+      statsSiswa.textContent = `Siswa: ${students.length}`;
+      statsInvoice.textContent = `Tagihan baru: ${newInvoices.length} | Sudah ada: ${skipInvoices.length}`;
+      statsTotal.textContent = `Total nominal (baru): ${formatRupiah(totalNominal)}`;
+      statsBox.classList.remove("hidden");
+
+      if (newInvoices.length > 0) {
+        btnGenerate.classList.remove("hidden");
+      } else {
+        btnGenerate.classList.add("hidden");
+      }
+
+      let previewHtml = `<table class="min-w-full text-xs border-collapse">
+        <thead class="border-b bg-slate-50 text-left">
+          <tr>
+            <th class="px-2 py-1.5">NIS</th>
+            <th class="px-2 py-1.5">Nama</th>
+            <th class="px-2 py-1.5">Kelas</th>
+            <th class="px-2 py-1.5">Komponen</th>
+            <th class="px-2 py-1.5 text-right">Nominal</th>
+            <th class="px-2 py-1.5 text-center">Status</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+      previewData.forEach((p, i) => {
+        const bg = p.alreadyExists ? "bg-amber-50" : (i % 2 === 0 ? "" : "bg-slate-50/50");
+        previewHtml += `<tr class="border-b ${bg}">
+          <td class="px-2 py-1">${p.nis ?? "-"}</td>
+          <td class="px-2 py-1 font-medium">${p.student_name}</td>
+          <td class="px-2 py-1">${p.kelas}</td>
+          <td class="px-2 py-1">${p.component_name}</td>
+          <td class="px-2 py-1 text-right">${formatRupiah(p.amount)}</td>
+          <td class="px-2 py-1 text-center">
+            ${p.alreadyExists
+              ? '<span class="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">sudah ada</span>'
+              : '<span class="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] text-green-700">baru</span>'}
+          </td>
+        </tr>`;
+      });
+
+      previewHtml += `</tbody></table>`;
+      previewContainer.innerHTML = previewHtml;
+
+      btnPreview.disabled = false;
+      btnPreview.textContent = "🔍 Preview Tagihan";
+      generateStatus.textContent = "";
+    }
+
+    async function doGenerate() {
+      const newInvoices = previewData.filter(p => !p.alreadyExists);
+      if (!newInvoices.length) {
+        generateStatus.textContent = "⚠️ Tidak ada tagihan baru untuk dibuat.";
+        generateStatus.className = "mt-3 text-sm text-center text-amber-600";
+        return;
+      }
+
+      if (!confirm(`Buat ${newInvoices.length} tagihan baru?`)) return;
+
+      btnGenerate.disabled = true;
+      btnGenerate.textContent = "⏳ Membuat tagihan...";
+      generateStatus.textContent = "";
+
+      const inserts = newInvoices.map(p => ({
+        student_id: p.student_id,
+        component_id: p.component_id,
+        period_id: p.period_id,
+        total_amount: p.amount,
+        status: "draft",
+      }));
+
+      // Insert batch per 100
+      const BATCH = 100;
+      let errors: string[] = [];
+      for (let i = 0; i < inserts.length; i += BATCH) {
+        const batch = inserts.slice(i, i + BATCH);
+        const { error } = await supabase.from("invoices").upsert(batch, {
+          onConflict: "student_id,component_id,period_id",
+          ignoreDuplicates: false,
+        });
+        if (error) errors.push(`Batch ${Math.floor(i / BATCH) + 1}: ${error.message}`);
+      }
+
+      btnGenerate.disabled = false;
+      btnGenerate.textContent = "✅ Generate Tagihan Sekarang";
+
+      if (errors.length) {
+        generateStatus.textContent = "❌ Sebagian gagal: " + errors.join("; ");
+        generateStatus.className = "mt-3 text-sm text-center text-red-600";
+      } else {
+        generateStatus.innerHTML = `✅ Berhasil membuat <strong>${inserts.length}</strong> tagihan! <a href="/tagihan" class="text-[var(--brand)] hover:underline">Lihat daftar tagihan →</a>`;
+        generateStatus.className = "mt-3 text-sm text-center text-green-600";
+        btnGenerate.classList.add("hidden");
+        // Refresh preview agar status "sudah ada" ter-update
+        await doPreview();
+      }
+    }
+
+    // Events
+    yearSelect.addEventListener("change", async () => {
+      const yearId = yearSelect.value;
+      if (yearId) {
+        await loadPeriods(yearId);
+        await loadClasses(yearId);
+      } else {
+        periodSelect.innerHTML = '<option value="">-- Pilih Tahun Ajaran dulu --</option>';
+        classCheckboxes.innerHTML = '<p class="text-xs text-slate-400">Pilih tahun ajaran dulu...</p>';
+      }
+      btnGenerate.classList.add("hidden");
+      statsBox.classList.add("hidden");
+      previewContainer.innerHTML = '<p class="text-sm text-slate-400">Isi parameter di sebelah kiri, lalu klik "Preview Tagihan".</p>';
+    });
+
+    btnPreview.addEventListener("click", doPreview);
+    btnGenerate.addEventListener("click", doGenerate);
+
+    // Init
+    await loadYears();
+    await loadComponents();
+  </script>
+</AppLayout>

@@ -40,7 +40,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 			<div class="px-6 py-5">
 				<!-- Step 1: Upload -->
 				<div id="import-step-upload">
-					<p class="mb-3 text-sm text-slate-600">Upload file Excel (.xlsx/.xls) dengan kolom: <strong>Nama, NIS, Jenjang, Kelas, Nama Orang Tua, No HP</strong></p>
+					<p class="mb-3 text-sm text-slate-600">Upload file Excel (.xlsx/.xls) dengan kolom: <strong>Nama, NIS, Jenjang, Kelas, Nama Orang Tua, No HP, Angkatan</strong></p>
 					<label class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 py-10 hover:border-emerald-500 hover:bg-emerald-50 transition">
 						<svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
 							<path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/>
@@ -68,6 +68,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 									<th class="px-3 py-2">Kelas</th>
 									<th class="px-3 py-2">Orang Tua</th>
 									<th class="px-3 py-2">No HP</th>
+									<th class="px-3 py-2">Angkatan</th>
 									<th class="px-3 py-2">Status</th>
 								</tr>
 							</thead>
@@ -123,6 +124,15 @@ import AppLayout from "../../layouts/AppLayout.astro";
 					placeholder="No HP orang tua"
 					class="w-full rounded-lg border border-slate-300 px-3 py-2"
 				/>
+				<input
+					name="angkatan"
+					id="f-angkatan"
+					type="number"
+					min="2000"
+					max="2100"
+					placeholder="Angkatan (tahun masuk, contoh: 2025)"
+					class="w-full rounded-lg border border-slate-300 px-3 py-2"
+				/>
 			</div>
 			<div class="mt-4 flex gap-2">
 				<button
@@ -167,6 +177,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 							<th class="px-3 py-2">NIS</th>
 							<th class="px-3 py-2">Jenjang</th>
 							<th class="px-3 py-2">Kelas</th>
+							<th class="px-3 py-2">Angkatan</th>
 							<th class="px-3 py-2">Orang Tua</th>
 							<th class="px-3 py-2">HP</th>
 							<th class="px-3 py-2">Aksi</th>
@@ -282,7 +293,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 
 			let query = supabase
 				.from("students")
-				.select("id,name,nis,class_id,guardian_id,classes(name,jenjang),guardians(name,phone)", { count: "exact" })
+				.select("id,name,nis,class_id,guardian_id,angkatan,classes(name,jenjang),guardians(name,phone)", { count: "exact" })
 				.order("name")
 				.range(from, to);
 
@@ -296,7 +307,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 					.eq("jenjang", filterJenjang);
 				const ids = (filteredClasses ?? []).map((c: any) => c.id);
 				if (!ids.length) {
-					body!.innerHTML = `<tr><td class="px-3 py-4 text-slate-400 text-center" colspan="7">Tidak ada siswa di jenjang ini.</td></tr>`;
+				body!.innerHTML = `<tr><td class="px-3 py-4 text-slate-400 text-center" colspan="8">Tidak ada siswa di jenjang ini.</td></tr>`;
 					totalLabel!.textContent = "0 siswa";
 					pageLabel!.textContent = "-";
 					(btnPrev as HTMLButtonElement).disabled = true;
@@ -309,7 +320,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 			const { data, error, count } = await query;
 
 			if (error) {
-				body!.innerHTML = `<tr><td class="px-3 py-3 text-red-600" colspan="7">${error.message}</td></tr>`;
+				body!.innerHTML = `<tr><td class="px-3 py-3 text-red-600" colspan="8">${error.message}</td></tr>`;
 				return;
 			}
 
@@ -324,7 +335,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 			(data || []).forEach((s) => studentMap.set(s.id, s));
 
 			if (!data?.length) {
-				body!.innerHTML = `<tr><td class="px-3 py-4 text-slate-400 text-center" colspan="7">Tidak ada data siswa.</td></tr>`;
+				body!.innerHTML = `<tr><td class="px-3 py-4 text-slate-400 text-center" colspan="8">Tidak ada data siswa.</td></tr>`;
 				return;
 			}
 
@@ -335,6 +346,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 						<td class="px-3 py-2">${item.nis ?? "-"}</td>
 						<td class="px-3 py-2">${jenjangBadge((item.classes as any)?.jenjang ?? "")}</td>
 						<td class="px-3 py-2">${(item.classes as any)?.name ?? "-"}</td>
+						<td class="px-3 py-2">${item.angkatan ?? "-"}</td>
 						<td class="px-3 py-2">${(item.guardians as any)?.name ?? "-"}</td>
 						<td class="px-3 py-2">${(item.guardians as any)?.phone ?? "-"}</td>
 						<td class="px-3 py-2 space-x-2 whitespace-nowrap">
@@ -368,6 +380,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 			document.getElementById("f-class").value = item.class_id ?? "";
 			document.getElementById("f-guardian-name").value = item.guardians?.name ?? "";
 			document.getElementById("f-guardian-phone").value = item.guardians?.phone ?? "";
+			document.getElementById("f-angkatan").value = item.angkatan ?? "";
 			btnCancel.classList.remove("hidden");
 			window.scrollTo({ top: 0, behavior: "smooth" });
 		}
@@ -471,6 +484,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 				class_id: payload.class_id || null,
 				academic_year_id: academicYearId,
 				guardian_id: guardianId,
+				angkatan: payload.angkatan ? parseInt(payload.angkatan, 10) : null,
 			};
 
 			if (isEdit) {
@@ -610,6 +624,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 				const iKelas   = col("kelas");
 				const iOtua    = headers.findIndex(h => h.includes("orang") || h.includes("wali") || h.includes("ortu"));
 				const iHp      = headers.findIndex(h => h.includes("hp") || h.includes("telp") || h.includes("phone"));
+				const iAngkatan = headers.findIndex(h => h.includes("angkatan") || h.includes("tahun masuk"));
 
 				parsedRows = [];
 				const errors: string[] = [];
@@ -619,11 +634,12 @@ import AppLayout from "../../layouts/AppLayout.astro";
 					const nama = String(r[iNama] ?? "").trim();
 					if (!nama) continue; // skip baris kosong
 
-					const nis     = iNis     >= 0 ? String(r[iNis]     ?? "").trim() : "";
-					const jenjang = iJenjang >= 0 ? String(r[iJenjang] ?? "").trim().toUpperCase() : "";
-					const kelas   = iKelas   >= 0 ? String(r[iKelas]   ?? "").trim() : "";
-					const ortu    = iOtua    >= 0 ? String(r[iOtua]    ?? "").trim() : "";
-					const hp      = iHp      >= 0 ? String(r[iHp]      ?? "").trim() : "";
+					const nis      = iNis      >= 0 ? String(r[iNis]      ?? "").trim() : "";
+					const jenjang  = iJenjang  >= 0 ? String(r[iJenjang]  ?? "").trim().toUpperCase() : "";
+					const kelas    = iKelas    >= 0 ? String(r[iKelas]    ?? "").trim() : "";
+					const ortu     = iOtua     >= 0 ? String(r[iOtua]     ?? "").trim() : "";
+					const hp       = iHp       >= 0 ? String(r[iHp]       ?? "").trim() : "";
+					const angkatan = iAngkatan >= 0 ? String(r[iAngkatan] ?? "").trim() : "";
 
 					// Cari kelas: prioritaskan jenjang+nama, fallback nama saja
 					const lookupKey = jenjang ? `${jenjang.toLowerCase()}|${kelas.toLowerCase()}` : kelas.toLowerCase();
@@ -631,7 +647,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 
 					if (kelas && !classId) errors.push(`Baris ${i + 1}: Kelas "${jenjang ? jenjang + " " : ""}${kelas}" tidak ditemukan.`);
 
-					parsedRows.push({ nama, nis, jenjang, kelas, classId, ortu, hp, valid: !kelas || !!classId });
+					parsedRows.push({ nama, nis, jenjang, kelas, classId, ortu, hp, angkatan, valid: !kelas || !!classId });
 				}
 
 				// Tampilkan preview
@@ -655,6 +671,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 						<td class="px-3 py-1.5 ${!r.classId && r.kelas ? "text-red-600 font-semibold" : ""}">${r.kelas || "-"}</td>
 						<td class="px-3 py-1.5">${r.ortu || "-"}</td>
 						<td class="px-3 py-1.5">${r.hp || "-"}</td>
+						<td class="px-3 py-1.5">${r.angkatan || "-"}</td>
 						<td class="px-3 py-1.5">${r.valid ? '<span class="text-emerald-600">✓ OK</span>' : '<span class="text-red-500">⚠ Kelas ?</span>'}</td>
 					</tr>`).join("");
 
@@ -711,6 +728,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 					class_id: r.classId,
 					academic_year_id: academicYearId,
 					guardian_id: guardianId,
+					angkatan: r.angkatan ? parseInt(r.angkatan, 10) : null,
 				});
 
 				error ? gagal++ : sukses++;
@@ -727,11 +745,11 @@ import AppLayout from "../../layouts/AppLayout.astro";
 			const XLSX = (window as any).XLSX;
 			if (!XLSX) return alert("Library belum siap, coba lagi.");
 			const ws = XLSX.utils.aoa_to_sheet([
-				["Nama", "NIS", "Jenjang", "Kelas", "Nama Orang Tua", "No HP"],
-				["Ahmad Fauzi",  "2024001", "SMK", "X IPA 1",  "Budi Santoso", "08123456789"],
-				["Siti Aisyah",  "2024002", "SMK", "X IPA 2",  "Dewi Rahayu",  "08234567890"],
-				["Budi Santoso", "2024003", "SMK", "XI IPS 1", "Rahmat",        "08345678901"],
-				["Dewi Lestari", "2024004", "SMK", "XI IPS 2","Sri Wahyuni",   "08456789012"],
+				["Nama", "NIS", "Jenjang", "Kelas", "Nama Orang Tua", "No HP", "Angkatan"],
+				["Ahmad Fauzi",  "2024001", "SMK", "X IPA 1",  "Budi Santoso", "08123456789", 2024],
+				["Siti Aisyah",  "2024002", "SMK", "X IPA 2",  "Dewi Rahayu",  "08234567890", 2024],
+				["Budi Santoso", "2024003", "SMK", "XI IPS 1", "Rahmat",        "08345678901", 2023],
+				["Dewi Lestari", "2024004", "SMK", "XI IPS 2","Sri Wahyuni",   "08456789012", 2023],
 			]);
 			const wb = XLSX.utils.book_new();
 			XLSX.utils.book_append_sheet(wb, ws, "Siswa");

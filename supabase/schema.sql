@@ -6,8 +6,9 @@ drop table if exists public.payment_lines    cascade;
 drop table if exists public.payments         cascade;
 drop table if exists public.invoices         cascade;
 drop table if exists public.student_discounts cascade;
-drop table if exists public.annual_fees      cascade;
-drop table if exists public.students         cascade;
+drop table if exists public.fee_configs       cascade;
+drop table if exists public.annual_fees       cascade;
+drop table if exists public.students          cascade;
 drop table if exists public.guardians        cascade;
 drop table if exists public.components       cascade;
 drop table if exists public.classes          cascade;
@@ -41,6 +42,7 @@ create table public.classes (
 	academic_year_id uuid not null references public.academic_years(id) on delete cascade,
 	name text not null,
 	jenjang text,
+	angkatan integer,
 	created_at timestamptz not null default now(),
 	unique (academic_year_id, name)
 );
@@ -60,6 +62,7 @@ create table public.students (
 	guardian_id uuid references public.guardians(id) on delete set null,
 	class_id uuid references public.classes(id) on delete set null,
 	academic_year_id uuid references public.academic_years(id) on delete set null,
+	angkatan integer,
 	created_at timestamptz not null default now()
 );
 
@@ -72,13 +75,15 @@ create table public.components (
 	created_at timestamptz not null default now()
 );
 
-create table public.annual_fees (
+create table public.fee_configs (
 	id uuid primary key default gen_random_uuid(),
 	academic_year_id uuid not null references public.academic_years(id) on delete cascade,
+	class_id uuid references public.classes(id) on delete cascade,
+	angkatan integer,
 	component_id uuid not null references public.components(id) on delete cascade,
 	amount numeric(14,2) not null default 0,
 	created_at timestamptz not null default now(),
-	unique (academic_year_id, component_id)
+	unique (academic_year_id, class_id, angkatan, component_id)
 );
 
 create table public.student_discounts (
@@ -160,7 +165,7 @@ alter table public.classes           enable row level security;
 alter table public.guardians         enable row level security;
 alter table public.students          enable row level security;
 alter table public.components        enable row level security;
-alter table public.annual_fees       enable row level security;
+alter table public.fee_configs       enable row level security;
 alter table public.student_discounts enable row level security;
 alter table public.invoices          enable row level security;
 alter table public.payments          enable row level security;
@@ -172,7 +177,7 @@ drop policy if exists "dev_all_anon_classes"           on public.classes;
 drop policy if exists "dev_all_anon_guardians"         on public.guardians;
 drop policy if exists "dev_all_anon_students"          on public.students;
 drop policy if exists "dev_all_anon_components"        on public.components;
-drop policy if exists "dev_all_anon_annual_fees"       on public.annual_fees;
+drop policy if exists "dev_all_anon_fee_configs"       on public.fee_configs;
 drop policy if exists "dev_all_anon_student_discounts" on public.student_discounts;
 drop policy if exists "dev_all_anon_invoices"          on public.invoices;
 drop policy if exists "dev_all_anon_payments"          on public.payments;
@@ -184,7 +189,7 @@ create policy "dev_all_anon_classes"           on public.classes           for a
 create policy "dev_all_anon_guardians"         on public.guardians         for all to anon, authenticated using (true) with check (true);
 create policy "dev_all_anon_students"          on public.students          for all to anon, authenticated using (true) with check (true);
 create policy "dev_all_anon_components"        on public.components        for all to anon, authenticated using (true) with check (true);
-create policy "dev_all_anon_annual_fees"       on public.annual_fees       for all to anon, authenticated using (true) with check (true);
+create policy "dev_all_anon_fee_configs"       on public.fee_configs       for all to anon, authenticated using (true) with check (true);
 create policy "dev_all_anon_student_discounts" on public.student_discounts for all to anon, authenticated using (true) with check (true);
 create policy "dev_all_anon_invoices"          on public.invoices          for all to anon, authenticated using (true) with check (true);
 create policy "dev_all_anon_payments"          on public.payments          for all to anon, authenticated using (true) with check (true);

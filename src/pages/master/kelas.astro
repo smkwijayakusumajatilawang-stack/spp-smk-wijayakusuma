@@ -34,18 +34,26 @@ import AppLayout from "../../layouts/AppLayout.astro";
 					<option value="">-- Pilih Jenjang --</option>
 					<option value="SMK">SMK</option>
 				</select>
+				<select
+					name="angkatan"
+					id="f-angkatan"
+					class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white"
+				>
+					<option value="">-- Pilih Angkatan (tahun masuk) --</option>
+				</select>
 				<input
 					name="name"
 					id="f-name"
 					required
-					placeholder="Nama kelas (contoh: 7A, X IPA 1)"
+					placeholder="Nama kelas (contoh: X TKJ 1, XI TKR 2)"
 					class="w-full rounded-lg border border-slate-300 px-3 py-2"
 				/>
 			</div>
 			<div class="mt-4 flex gap-2">
 				<button
 					type="submit"
-					class="rounded-lg bg-[var(--brand)] px-4 py-2 font-semibold text-white"
+					id="btn-submit"
+					class="rounded-lg bg-[var(--brand)] px-4 py-2 font-semibold text-white disabled:opacity-50"
 				>
 					Simpan
 				</button>
@@ -78,6 +86,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 						<tr>
 							<th class="px-3 py-2">Nama Kelas</th>
 							<th class="px-3 py-2">Jenjang</th>
+							<th class="px-3 py-2">Angkatan</th>
 							<th class="px-3 py-2">Tahun Ajaran</th>
 							<th class="px-3 py-2">Aksi</th>
 						</tr>
@@ -102,6 +111,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 		const btnCancel = document.getElementById("btn-cancel");
 		const body = document.getElementById("classes-body");
 		const yearSelect = document.getElementById("f-year");
+		const angkatanSelect = document.getElementById("f-angkatan");
 		const filterYear = document.getElementById("filter-year");
 		const filterJenjang = document.getElementById("filter-jenjang");
 		const classMap = new Map();
@@ -147,6 +157,14 @@ import AppLayout from "../../layouts/AppLayout.astro";
 			// Default filter ke tahun aktif jika ada
 			const active = data.find((y) => y.is_active);
 			if (active) filterYear.value = active.id;
+
+			// Populate angkatan dropdown
+			const currentYear = new Date().getFullYear();
+			let angkatanOpts = '<option value="">-- Pilih Angkatan (tahun masuk) --</option>';
+			for (let y = currentYear - 5; y <= currentYear + 1; y++) {
+				angkatanOpts += `<option value="${y}">${y}</option>`;
+			}
+			angkatanSelect.innerHTML = angkatanOpts;
 		}
 
 		async function loadClasses() {
@@ -154,8 +172,8 @@ import AppLayout from "../../layouts/AppLayout.astro";
 			const filterJenjangVal = (filterJenjang as HTMLSelectElement).value;
 			let query = supabase
 				.from("classes")
-				.select("id,name,jenjang,academic_year_id,academic_years(name,is_active)")
-				.order("jenjang")
+				.select("id,name,jenjang,angkatan,academic_year_id,academic_years(name,is_active)")
+				.order("angkatan", { ascending: false })
 				.order("name");
 			if (filterVal) query = query.eq("academic_year_id", filterVal);
 			if (filterJenjangVal) query = query.eq("jenjang", filterJenjangVal);
@@ -163,12 +181,12 @@ import AppLayout from "../../layouts/AppLayout.astro";
 			const { data, error } = await query;
 
 			if (error) {
-				body.innerHTML = `<tr><td class="px-3 py-3 text-red-600" colspan="4">${error.message}</td></tr>`;
+				body.innerHTML = `<tr><td class="px-3 py-3 text-red-600" colspan="5">${error.message}</td></tr>`;
 				return;
 			}
 
 			if (!data?.length) {
-				body.innerHTML = `<tr><td class="px-3 py-4 text-center text-slate-400" colspan="4">Belum ada kelas.</td></tr>`;
+				body.innerHTML = `<tr><td class="px-3 py-4 text-center text-slate-400" colspan="5">Belum ada kelas.</td></tr>`;
 				return;
 			}
 
@@ -180,6 +198,9 @@ import AppLayout from "../../layouts/AppLayout.astro";
 					(item) => `<tr class="border-b">
 						<td class="px-3 py-2 font-medium">${item.name}</td>
 						<td class="px-3 py-2">${jenjangBadge(item.jenjang)}</td>
+						<td class="px-3 py-2">
+							<span class="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">${item.angkatan ?? "-"}</span>
+						</td>
 						<td class="px-3 py-2">
 							${(item.academic_years as any)?.name ?? "-"}
 							${(item.academic_years as any)?.is_active ? '<span class="ml-1 rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] text-green-700">aktif</span>' : ""}
@@ -207,6 +228,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 				(editIdInput as HTMLInputElement).value = item.id;
 				(document.getElementById("f-year") as HTMLSelectElement).value = item.academic_year_id ?? "";
 				(document.getElementById("f-jenjang") as HTMLSelectElement).value = item.jenjang ?? "";
+				(document.getElementById("f-angkatan") as HTMLSelectElement).value = item.angkatan ? String(item.angkatan) : "";
 				(document.getElementById("f-name") as HTMLInputElement).value = item.name;
 				btnCancel!.classList.remove("hidden");
 				window.scrollTo({ top: 0, behavior: "smooth" });
@@ -228,9 +250,10 @@ import AppLayout from "../../layouts/AppLayout.astro";
 			e.preventDefault();
 			const fd = new FormData(form);
 			const isEdit = !!editIdInput.value;
-			const payload = {
+			const payload: Record<string, any> = {
 				name: fd.get("name"),
 				jenjang: fd.get("jenjang") || null,
+				angkatan: fd.get("angkatan") ? parseInt(fd.get("angkatan") as string) : null,
 				academic_year_id: fd.get("academic_year_id"),
 			};
 

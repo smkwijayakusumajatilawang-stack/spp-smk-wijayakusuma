@@ -1,0 +1,382 @@
+---
+import AppLayout from "../../layouts/AppLayout.astro";
+---
+
+<AppLayout title="Angkatan & Biaya">
+  <header class="mb-6">
+    <p class="text-sm font-semibold uppercase tracking-[0.15em] text-[var(--brand)]">Master Data</p>
+    <h2 class="text-2xl font-black sm:text-3xl">Angkatan & Biaya</h2>
+    <p class="mt-1 text-sm text-slate-500">
+      Atur nominal biaya per komponen pembayaran untuk setiap angkatan. Biaya ini akan digunakan saat generate tagihan massal.
+    </p>
+  </header>
+
+  <!-- Error koneksi -->
+  <div id="conn-error" class="hidden mb-4 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700"></div>
+
+  <section class="space-y-8">
+    <!-- ============================================================ -->
+    <!-- FORM INPUT ANGKATAN & BIAYA                                   -->
+    <!-- ============================================================ -->
+    <div class="rounded-xl border border-slate-200 p-4">
+      <h4 id="angkatan-form-title" class="font-semibold text-lg">Tambah Angkatan & Biaya</h4>
+      <div id="angkatan-error" class="hidden mt-2 rounded border border-red-300 bg-red-50 p-2 text-xs text-red-600"></div>
+
+      <form id="angkatan-form" class="mt-3 space-y-4">
+        <input type="hidden" id="angkatan-edit-id" />
+
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <label class="block text-xs text-slate-500 mb-1" for="f-angkatan">Angkatan (Tahun Masuk)</label>
+            <input name="angkatan" id="f-angkatan" required type="number" min="2000" max="2100" step="1"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2"
+              placeholder="contoh: 2025" />
+          </div>
+
+          <div>
+            <label class="block text-xs text-slate-500 mb-1" for="f-tahun-ajaran">Tahun Ajaran</label>
+            <select name="academic_year_id" id="f-tahun-ajaran" required
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white">
+              <option value="">-- Pilih Tahun Ajaran --</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Komponen biaya (dinamis) -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-2">Biaya per Komponen</label>
+          <div id="component-fields" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <p class="text-xs text-slate-400 col-span-full">Memuat komponen...</p>
+          </div>
+        </div>
+
+        <div class="flex gap-2">
+          <button type="submit" id="angkatan-submit"
+            class="rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+            Simpan
+          </button>
+          <button type="button" id="angkatan-cancel"
+            class="hidden rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold">
+            Batal
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- TABEL DAFTAR ANGKATAN & BIAYA                                 -->
+    <!-- ============================================================ -->
+    <div class="rounded-xl border border-slate-200 p-4">
+      <h4 class="font-semibold text-lg">Daftar Angkatan & Biaya</h4>
+      <div class="mt-3 overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="border-b bg-slate-50 text-left text-xs uppercase text-slate-500">
+            <tr>
+              <th class="px-3 py-2">Angkatan</th>
+              <th class="px-3 py-2">Tahun Ajaran</th>
+              <th class="px-3 py-2">Komponen & Biaya</th>
+              <th class="px-3 py-2">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="angkatan-body">
+            <tr><td class="px-3 py-4 text-center text-slate-400 text-xs" colspan="4">Memuat...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    import { createClient } from "@supabase/supabase-js";
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    const $ = (id: string) => document.getElementById(id) as HTMLElement;
+
+    function showError(elId: string, msg: string) {
+      const el = $(elId);
+      el.textContent = msg;
+      el.classList.remove("hidden");
+    }
+    function clearError(elId: string) {
+      const el = $(elId);
+      el.textContent = "";
+      el.classList.add("hidden");
+    }
+
+    const formatRupiah = (val: number) =>
+      new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(val);
+
+    // ── Init Supabase ─────────────────────────────────────────────────────────
+    const supabase = createClient(
+      import.meta.env.PUBLIC_SUPABASE_URL,
+      import.meta.env.PUBLIC_SUPABASE_ANON_KEY,
+    );
+
+    // ============================================================
+    // REF DATA: komponen & tahun ajaran
+    // ============================================================
+    let allComponents: any[] = [];
+    let yearMap = new Map<string, any>();
+
+    async function loadComponents() {
+      const { data } = await supabase
+        .from("components")
+        .select("id,name,payment_type,default_amount")
+        .eq("is_active", true)
+        .order("name");
+      allComponents = data || [];
+      renderComponentFields();
+    }
+
+    async function loadYears() {
+      const { data, error } = await supabase
+        .from("academic_years")
+        .select("id,name,is_active")
+        .order("name");
+
+      yearMap.clear();
+      (data || []).forEach((y: any) => yearMap.set(y.id, y));
+
+      const sel = $("f-tahun-ajaran") as HTMLSelectElement;
+      sel.innerHTML = '<option value="">-- Pilih Tahun Ajaran --</option>' +
+        (data || []).map((y: any) => `<option value="${y.id}">${y.name}${y.is_active ? " (aktif)" : ""}</option>`).join("");
+
+      if (data?.length) {
+        const active = data.find((y: any) => y.is_active);
+        if (active) sel.value = active.id;
+      }
+    }
+
+    function renderComponentFields() {
+      const container = $("component-fields");
+      if (!allComponents.length) {
+        container.innerHTML = '<p class="text-xs text-slate-400 col-span-full">Belum ada komponen aktif. Tambahkan komponen di menu Components.</p>';
+        return;
+      }
+
+      container.innerHTML = allComponents.map((c: any) => `
+        <div class="rounded-lg border border-slate-200 p-3">
+          <label class="block text-xs font-medium text-slate-700 mb-1">${c.name}</label>
+          <p class="text-[10px] text-slate-400 mb-1">${c.payment_type} | default: ${formatRupiah(c.default_amount)}</p>
+          <input
+            type="number"
+            min="0"
+            step="1000"
+            name="comp_${c.id}"
+            data-component-id="${c.id}"
+            value="${c.default_amount}"
+            class="comp-amount w-full rounded border border-slate-300 px-2 py-1.5 text-sm focus:border-[var(--brand)] focus:ring-1 focus:ring-[var(--brand)]"
+            placeholder="0"
+          />
+        </div>
+      `).join("");
+    }
+
+    // ============================================================
+    // FORM ANGKATAN & BIAYA
+    // ============================================================
+    const angkatanForm = $("angkatan-form") as HTMLFormElement;
+    const angkatanFormTitle = $("angkatan-form-title");
+    const angkatanEditId = $("angkatan-edit-id") as HTMLInputElement;
+    const angkatanCancel = $("angkatan-cancel") as HTMLButtonElement;
+    const angkatanSubmit = $("angkatan-submit") as HTMLButtonElement;
+    const angkatanBody = $("angkatan-body");
+
+    function resetAngkatanForm() {
+      angkatanForm.reset();
+      angkatanEditId.value = "";
+      angkatanFormTitle.textContent = "Tambah Angkatan & Biaya";
+      angkatanCancel.classList.add("hidden");
+      clearError("angkatan-error");
+      // Reset komponen ke default
+      document.querySelectorAll(".comp-amount").forEach((inp: any) => {
+        const comp = allComponents.find((c: any) => c.id === inp.dataset.componentId);
+        inp.value = comp ? comp.default_amount : 0;
+      });
+    }
+
+    async function loadAngkatanConfigs() {
+      // Ambil semua fee_configs dengan class_id IS NULL (angkatan-based)
+      const { data: configs, error } = await supabase
+        .from("fee_configs")
+        .select("id,angkatan,academic_year_id,component_id,amount,academic_years(name)")
+        .is("class_id", null)
+        .order("angkatan", { ascending: false })
+        .order("component_id");
+
+      if (error) {
+        angkatanBody.innerHTML = `<tr><td class="px-3 py-3 text-red-600 text-xs" colspan="4">Error: ${error.message}</td></tr>`;
+        return;
+      }
+
+      if (!configs?.length) {
+        angkatanBody.innerHTML = `<tr><td class="px-3 py-4 text-center text-slate-400 text-xs" colspan="4">Belum ada data. Tambahkan angkatan & biaya terlebih dahulu.</td></tr>`;
+        return;
+      }
+
+      // Group by angkatan + academic_year_id
+      const grouped = new Map<string, { angkatan: number; academic_year_id: string; yearName: string; items: any[] }>();
+      (configs || []).forEach((cfg: any) => {
+        const key = `${cfg.angkatan}_${cfg.academic_year_id}`;
+        if (!grouped.has(key)) {
+          grouped.set(key, {
+            angkatan: cfg.angkatan,
+            academic_year_id: cfg.academic_year_id,
+            yearName: (cfg as any).academic_years?.name ?? "-",
+            items: [],
+          });
+        }
+        grouped.get(key)!.items.push(cfg);
+      });
+
+      const rows: string[] = [];
+      grouped.forEach((group) => {
+        const komponenList = group.items.map((item: any) => {
+          const comp = allComponents.find((c: any) => c.id === item.component_id);
+          return `<span class="inline-block mr-2 mb-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs">
+            ${comp?.name ?? item.component_id}: <strong>${formatRupiah(item.amount)}</strong>
+          </span>`;
+        }).join("");
+
+        const firstId = group.items[0]?.id;
+        rows.push(`<tr class="border-b hover:bg-slate-50">
+          <td class="px-3 py-2">
+            <span class="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">${group.angkatan}</span>
+          </td>
+          <td class="px-3 py-2 text-sm">${group.yearName}</td>
+          <td class="px-3 py-2">
+            <div class="flex flex-wrap gap-1">${komponenList}</div>
+          </td>
+          <td class="px-3 py-2 space-x-2 whitespace-nowrap">
+            <button data-angkatan="${group.angkatan}" data-year="${group.academic_year_id}" data-action="angkatan-edit"
+              class="text-blue-600 hover:underline text-xs">Edit</button>
+            <button data-angkatan="${group.angkatan}" data-year="${group.academic_year_id}" data-action="angkatan-delete"
+              class="text-red-600 hover:underline text-xs">Hapus</button>
+          </td>
+        </tr>`);
+      });
+
+      angkatanBody.innerHTML = rows.join("");
+    }
+
+    // Event delegation untuk tabel
+    angkatanBody.addEventListener("click", async (e) => {
+      const btn = (e.target as HTMLElement).closest("button[data-action]") as HTMLButtonElement;
+      if (!btn) return;
+      const { angkatan, year, action } = btn.dataset;
+      if (!angkatan || !year) return;
+
+      if (action === "angkatan-edit") {
+        // Load configs untuk angkatan+year ini
+        const { data: configs } = await supabase
+          .from("fee_configs")
+          .select("id,component_id,amount")
+          .eq("angkatan", parseInt(angkatan))
+          .eq("academic_year_id", year)
+          .is("class_id", null);
+
+        angkatanFormTitle.textContent = "Edit Angkatan & Biaya";
+        angkatanEditId.value = angkatan; // simpan angkatan sbg identifier
+        ($("f-angkatan") as HTMLInputElement).value = angkatan;
+        ($("f-tahun-ajaran") as HTMLSelectElement).value = year;
+        angkatanCancel.classList.remove("hidden");
+        clearError("angkatan-error");
+
+        // Reset dulu ke default
+        document.querySelectorAll(".comp-amount").forEach((inp: any) => {
+          const comp = allComponents.find((c: any) => c.id === inp.dataset.componentId);
+          inp.value = comp ? comp.default_amount : 0;
+        });
+
+        // Isi nilai yang sudah ada
+        (configs || []).forEach((cfg: any) => {
+          const inp = document.querySelector(`input[data-component-id="${cfg.component_id}"]`) as HTMLInputElement;
+          if (inp) inp.value = cfg.amount;
+        });
+
+        angkatanForm.scrollIntoView({ behavior: "smooth" });
+      }
+
+      if (action === "angkatan-delete") {
+        if (!confirm(`Hapus semua konfigurasi biaya untuk Angkatan ${angkatan}?\nSemua data biaya terkait akan dihapus.`)) return;
+        const { error } = await supabase
+          .from("fee_configs")
+          .delete()
+          .eq("angkatan", parseInt(angkatan))
+          .eq("academic_year_id", year)
+          .is("class_id", null);
+
+        if (error) {
+          showError("angkatan-error", "Gagal hapus: " + error.message);
+          return;
+        }
+        clearError("angkatan-error");
+        await loadAngkatanConfigs();
+      }
+    });
+
+    angkatanCancel.addEventListener("click", resetAngkatanForm);
+
+    angkatanForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      clearError("angkatan-error");
+
+      const angkatanVal = parseInt(($("f-angkatan") as HTMLInputElement).value);
+      const yearId = ($("f-tahun-ajaran") as HTMLSelectElement).value;
+      const isEdit = !!angkatanEditId.value;
+
+      if (!angkatanVal || !yearId) {
+        showError("angkatan-error", "Isi Angkatan dan Tahun Ajaran terlebih dahulu.");
+        return;
+      }
+
+      angkatanSubmit.disabled = true;
+      angkatanSubmit.textContent = "Menyimpan...";
+
+      // Kumpulkan data per komponen
+      const upserts: any[] = [];
+      document.querySelectorAll(".comp-amount").forEach((inp: any) => {
+        const componentId = inp.dataset.componentId;
+        const amount = parseFloat(inp.value) || 0;
+        upserts.push({
+          academic_year_id: yearId,
+          angkatan: angkatanVal,
+          component_id: componentId,
+          class_id: null,
+          amount: amount,
+        });
+      });
+
+      if (isEdit) {
+        // Hapus dulu config lama untuk angkatan+year ini
+        const oldAngkatan = parseInt(angkatanEditId.value);
+        await supabase
+          .from("fee_configs")
+          .delete()
+          .eq("angkatan", oldAngkatan)
+          .eq("academic_year_id", yearId)
+          .is("class_id", null);
+      }
+
+      const { error } = await supabase.from("fee_configs").upsert(upserts, {
+        onConflict: "academic_year_id,angkatan,component_id",
+      });
+
+      angkatanSubmit.disabled = false;
+      angkatanSubmit.textContent = "Simpan";
+
+      if (error) {
+        showError("angkatan-error", error.message);
+        return;
+      }
+
+      resetAngkatanForm();
+      await loadAngkatanConfigs();
+    });
+
+    // ── Init ─────────────────────────────────────────────────────────────────
+    await loadComponents();
+    await loadYears();
+    await loadAngkatanConfigs();
+  </script>
+</AppLayout>

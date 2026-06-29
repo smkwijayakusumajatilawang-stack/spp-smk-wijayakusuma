@@ -1,0 +1,293 @@
+---
+import AppLayout from "../../layouts/AppLayout.astro";
+---
+
+<AppLayout title="Laporan Tunggakan">
+  <header class="mb-6">
+    <p class="text-sm font-semibold uppercase tracking-[0.15em] text-[var(--brand)]">Laporan</p>
+    <h2 class="text-2xl font-black sm:text-3xl">Laporan Tunggakan</h2>
+    <p class="mt-1 text-sm text-slate-500">
+      Pantau tunggakan pembayaran per siswa, kelas, atau komponen.
+    </p>
+  </header>
+
+  <!-- Filter -->
+  <div class="mb-4 grid gap-3 rounded-xl border border-slate-200 p-4 sm:grid-cols-2 lg:grid-cols-5">
+    <select id="f-year" class="rounded-lg border border-slate-300 px-3 py-2 bg-white">
+      <option value="">Semua tahun ajaran</option>
+    </select>
+    <select id="f-class" class="rounded-lg border border-slate-300 px-3 py-2 bg-white">
+      <option value="">Semua kelas</option>
+    </select>
+    <select id="f-angkatan" class="rounded-lg border border-slate-300 px-3 py-2 bg-white">
+      <option value="">Semua angkatan</option>
+      <option value="2020">2020</option><option value="2021">2021</option>
+      <option value="2022">2022</option><option value="2023">2023</option>
+      <option value="2024">2024</option><option value="2025">2025</option>
+      <option value="2026">2026</option><option value="2027">2027</option>
+    </select>
+    <select id="f-component" class="rounded-lg border border-slate-300 px-3 py-2 bg-white">
+      <option value="">Semua komponen</option>
+    </select>
+    <button id="btn-filter" class="rounded-lg bg-[var(--brand)] px-4 py-2 font-semibold text-white">
+      🔍 Filter
+    </button>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="rounded-xl border border-slate-200 p-4">
+      <p class="text-xs text-slate-500 uppercase">Total Tagihan</p>
+      <p id="card-total-tagihan" class="text-2xl font-black text-slate-700">-</p>
+    </div>
+    <div class="rounded-xl border border-slate-200 p-4">
+      <p class="text-xs text-slate-500 uppercase">Sudah Dibayar</p>
+      <p id="card-paid" class="text-2xl font-black text-green-600">-</p>
+    </div>
+    <div class="rounded-xl border border-red-200 bg-red-50 p-4">
+      <p class="text-xs text-red-500 uppercase">Tunggakan</p>
+      <p id="card-due" class="text-2xl font-black text-red-600">-</p>
+    </div>
+    <div class="rounded-xl border border-slate-200 p-4">
+      <p class="text-xs text-slate-500 uppercase">Siswa Menunggak</p>
+      <p id="card-students" class="text-2xl font-black text-slate-700">-</p>
+    </div>
+  </div>
+
+  <!-- Tabel Tunggakan Detail -->
+  <div class="rounded-xl border border-slate-200 p-4 overflow-x-auto">
+    <h3 class="font-bold text-lg mb-3">Detail Tunggakan</h3>
+    <div id="table-container">
+      <p class="text-sm text-slate-400">Klik "Filter" untuk melihat data.</p>
+    </div>
+  </div>
+
+  <script>
+    import { createClient } from "@supabase/supabase-js";
+
+    const supabase = createClient(
+      import.meta.env.PUBLIC_SUPABASE_URL,
+      import.meta.env.PUBLIC_SUPABASE_ANON_KEY,
+    );
+
+    const fYear = document.getElementById("f-year") as HTMLSelectElement;
+    const fClass = document.getElementById("f-class") as HTMLSelectElement;
+    const fAngkatan = document.getElementById("f-angkatan") as HTMLSelectElement;
+    const fComponent = document.getElementById("f-component") as HTMLSelectElement;
+    const btnFilter = document.getElementById("btn-filter") as HTMLButtonElement;
+    const tableContainer = document.getElementById("table-container") as HTMLDivElement;
+
+    const formatRupiah = (val: number) =>
+      new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(val);
+
+    // Load tahun ajaran
+    async function loadYears() {
+      const { data } = await supabase.from("academic_years").select("id,name,is_active").order("name");
+      if (!data?.length) return;
+      fYear.innerHTML = '<option value="">Semua tahun ajaran</option>' +
+        data.map(y => `<option value="${y.id}">${y.name}${y.is_active ? " (aktif)" : ""}</option>`).join("");
+      const active = data.find(y => y.is_active);
+      if (active) fYear.value = active.id;
+    }
+
+    // Load komponen
+    async function loadComponents() {
+      const { data } = await supabase
+        .from("components")
+        .select("id,name")
+        .eq("is_active", true)
+        .order("name");
+      if (!data?.length) return;
+      fComponent.innerHTML = '<option value="">Semua komponen</option>' +
+        data.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
+    }
+
+    // Load kelas berdasarkan tahun ajaran
+    async function loadClasses(yearId?: string) {
+      let query = supabase.from("classes").select("id,name,angkatan").order("angkatan", { ascending: false }).order("name");
+      if (yearId) query = query.eq("academic_year_id", yearId);
+      const { data } = await query;
+      if (!data?.length) {
+        fClass.innerHTML = '<option value="">Semua kelas</option>';
+        return;
+      }
+      fClass.innerHTML = '<option value="">Semua kelas</option>' +
+        data.map(c => `<option value="${c.id}">${c.name}${c.angkatan ? " (Angk. " + c.angkatan + ")" : ""}</option>`).join("");
+    }
+
+    fYear.addEventListener("change", () => loadClasses(fYear.value || undefined));
+
+    async function doFilter() {
+      const yearId = fYear.value;
+      const classId = fClass.value;
+      const angkatanVal = fAngkatan.value;
+      const componentId = fComponent.value;
+
+      tableContainer.innerHTML = '<p class="text-sm text-slate-400">Memuat data...</p>';
+      btnFilter.disabled = true;
+      btnFilter.textContent = "⏳ Memproses...";
+
+      // Build query untuk invoices
+      let invQuery = supabase
+        .from("invoices")
+        .select(`
+          id, total_amount, paid_amount, status,
+          student_id, component_id, period_id,
+          students!inner(id, name, nis, class_id, classes!inner(id, name, angkatan, academic_year_id)),
+          components!inner(id, name)
+        `)
+        .neq("status", "cancelled");
+
+      if (componentId) invQuery = invQuery.eq("component_id", componentId);
+      if (classId) invQuery = invQuery.eq("students.class_id", classId);
+      if (angkatanVal) invQuery = invQuery.eq("students.classes.angkatan", parseInt(angkatanVal));
+      if (yearId) invQuery = invQuery.eq("students.classes.academic_year_id", yearId);
+
+      invQuery = invQuery.order("id");
+
+      const { data: invoices, error } = await invQuery;
+
+      if (error) {
+        tableContainer.innerHTML = `<p class="text-sm text-red-500">Error: ${error.message}</p>`;
+        btnFilter.disabled = false;
+        btnFilter.textContent = "🔍 Filter";
+        return;
+      }
+
+      if (!invoices?.length) {
+        tableContainer.innerHTML = '<p class="text-sm text-slate-400">Tidak ada data tagihan dengan filter ini.</p>';
+        document.getElementById("card-total-tagihan")!.textContent = "-";
+        document.getElementById("card-paid")!.textContent = "-";
+        document.getElementById("card-due")!.textContent = "-";
+        document.getElementById("card-students")!.textContent = "-";
+        btnFilter.disabled = false;
+        btnFilter.textContent = "🔍 Filter";
+        return;
+      }
+
+      // Aggregate
+      let totalTagihan = 0, totalPaid = 0, totalDue = 0;
+      const siswaMenunggak = new Set<string>();
+
+      // Group by student
+      const studentMap = new Map<string, {
+        name: string; nis: string; kelas: string; angkatan: string;
+        totalTagihan: number; totalPaid: number;
+        items: any[];
+      }>();
+
+      invoices.forEach(inv => {
+        const s = (inv as any).students;
+        const cls = (inv as any).students?.classes;
+        const comp = (inv as any).components;
+        const total = Number(inv.total_amount);
+        const paid = Number(inv.paid_amount);
+        const due = total - paid;
+
+        totalTagihan += total;
+        totalPaid += paid;
+        totalDue += due;
+        if (due > 0) siswaMenunggak.add(s.id);
+
+        if (!studentMap.has(s.id)) {
+          studentMap.set(s.id, {
+            name: s.name,
+            nis: s.nis,
+            kelas: cls?.name ?? "-",
+            angkatan: cls?.angkatan ?? "-",
+            totalTagihan: 0,
+            totalPaid: 0,
+            items: [],
+          });
+        }
+
+        const entry = studentMap.get(s.id)!;
+        entry.totalTagihan += total;
+        entry.totalPaid += paid;
+        entry.items.push({ compName: comp.name, total, paid, due, status: inv.status });
+      });
+
+      // Summary cards
+      document.getElementById("card-total-tagihan")!.textContent = formatRupiah(totalTagihan);
+      document.getElementById("card-paid")!.textContent = formatRupiah(totalPaid);
+      document.getElementById("card-due")!.textContent = formatRupiah(totalDue);
+      document.getElementById("card-students")!.textContent = String(siswaMenunggak.size);
+
+      // Build table
+      let html = `<table class="min-w-full text-xs border-collapse">
+        <thead class="border-b bg-slate-50 text-left">
+          <tr>
+            <th class="px-2 py-1.5">NIS</th>
+            <th class="px-2 py-1.5">Nama</th>
+            <th class="px-2 py-1.5">Kelas</th>
+            <th class="px-2 py-1.5">Angk.</th>
+            <th class="px-2 py-1.5">Komponen</th>
+            <th class="px-2 py-1.5 text-right">Tagihan</th>
+            <th class="px-2 py-1.5 text-right">Dibayar</th>
+            <th class="px-2 py-1.5 text-right">Tunggakan</th>
+            <th class="px-2 py-1.5 text-center">Status</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+      let rowIdx = 0;
+      const sortedStudents = Array.from(studentMap.values())
+        .sort((a, b) => {
+          const dueA = a.totalTagihan - a.totalPaid;
+          const dueB = b.totalTagihan - b.totalPaid;
+          return dueB - dueA; // sorting menunggak terbesar dulu
+        });
+
+      sortedStudents.forEach(s => {
+        const overallDue = s.totalTagihan - s.totalPaid;
+        // Row siswa (summary)
+        html += `<tr class="border-b bg-slate-100 font-semibold">
+          <td class="px-2 py-1.5">${s.nis ?? "-"}</td>
+          <td class="px-2 py-1.5">${s.name}</td>
+          <td class="px-2 py-1.5">${s.kelas}</td>
+          <td class="px-2 py-1.5"><span class="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700">${s.angkatan}</span></td>
+          <td class="px-2 py-1.5 text-slate-500">${s.items.length} komponen</td>
+          <td class="px-2 py-1.5 text-right">${formatRupiah(s.totalTagihan)}</td>
+          <td class="px-2 py-1.5 text-right text-green-600">${formatRupiah(s.totalPaid)}</td>
+          <td class="px-2 py-1.5 text-right ${overallDue > 0 ? 'text-red-600 font-bold' : 'text-green-600'}">${formatRupiah(overallDue)}</td>
+          <td class="px-2 py-1.5 text-center">
+            ${overallDue <= 0
+              ? '<span class="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] text-green-700">Lunas</span>'
+              : `<span class="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] text-red-700">${formatRupiah(overallDue)}</span>`}
+          </td>
+        </tr>`;
+
+        // Detail per komponen
+        s.items.forEach(item => {
+          rowIdx++;
+          html += `<tr class="border-b ${rowIdx % 2 === 0 ? 'bg-slate-50/50' : ''}">
+            <td class="px-2 py-1" colspan="4"></td>
+            <td class="px-2 py-1 pl-6 text-slate-600">↳ ${item.compName}</td>
+            <td class="px-2 py-1 text-right">${formatRupiah(item.total)}</td>
+            <td class="px-2 py-1 text-right text-green-600">${formatRupiah(item.paid)}</td>
+            <td class="px-2 py-1 text-right ${item.due > 0 ? 'text-red-500' : 'text-green-500'}">${formatRupiah(item.due)}</td>
+            <td class="px-2 py-1 text-center">
+              ${item.status === 'paid' 
+                ? '<span class="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] text-green-700">Lunas</span>'
+                : item.status === 'posted'
+                  ? '<span class="rounded-full bg-yellow-100 px-1.5 py-0.5 text-[10px] text-yellow-700">Posted</span>'
+                  : '<span class="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">Draft</span>'}
+            </td>
+          </tr>`;
+        });
+      });
+
+      html += `</tbody></table>`;
+      tableContainer.innerHTML = html;
+      btnFilter.disabled = false;
+      btnFilter.textContent = "🔍 Filter";
+    }
+
+    btnFilter.addEventListener("click", doFilter);
+
+    // Init
+    await loadYears();
+    await loadComponents();
+    await loadClasses();
+  </script>
+</AppLayout>

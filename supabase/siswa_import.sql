@@ -12,7 +12,8 @@ ALTER TABLE public.students
   ADD COLUMN IF NOT EXISTS tanggal_lahir DATE,
   ADD COLUMN IF NOT EXISTS jenis_kelamin TEXT,
   ADD COLUMN IF NOT EXISTS alamat        TEXT,
-  ADD COLUMN IF NOT EXISTS telepon       TEXT;
+  ADD COLUMN IF NOT EXISTS telepon       TEXT,
+  ADD COLUMN IF NOT EXISTS angkatan      INTEGER;
 
 -- ============================================================
 -- LANGKAH 2: Insert Tahun Ajaran (skip jika sudah ada)
@@ -142,7 +143,7 @@ normalized AS (
   FROM raw
 )
 INSERT INTO public.students
-  (name, nis, nisn, tempat_lahir, tanggal_lahir, jenis_kelamin, alamat, telepon, academic_year_id)
+  (name, nis, nisn, tempat_lahir, tanggal_lahir, jenis_kelamin, alamat, telepon, academic_year_id, angkatan)
 SELECT
   n.name,
   n.nis,
@@ -152,7 +153,8 @@ SELECT
   n.jenis_kelamin,
   n.alamat,
   n.telepon,
-  ay.id AS academic_year_id
+  ay.id AS academic_year_id,
+  NULL::INTEGER AS angkatan
 FROM normalized n
 LEFT JOIN public.academic_years ay ON ay.name = n.ta_normalized
 ON CONFLICT (nis) DO NOTHING;
