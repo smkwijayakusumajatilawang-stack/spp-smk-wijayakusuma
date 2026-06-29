@@ -18,9 +18,13 @@ import AppLayout from "../../layouts/AppLayout.astro";
 		<form id="payment-form" class="rounded-xl border border-slate-200 p-4">
 			<h3 class="text-lg font-bold">Proses Pembayaran</h3>
 			<div class="mt-4 space-y-3">
-				<select name="student_id" id="f-student" required
+				<select name="class_id" id="f-class"
 					class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white">
-					<option value="">Pilih siswa</option>
+					<option value="">Semua Kelas</option>
+				</select>
+				<select name="student_id" id="f-student" required disabled
+					class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white disabled:bg-slate-100 disabled:cursor-not-allowed">
+					<option value="">Pilih kelas terlebih dahulu</option>
 				</select>
 				<div>
 					<label class="block text-xs text-slate-500 mb-1">Tanggal Bayar</label>
@@ -87,12 +91,15 @@ import AppLayout from "../../layouts/AppLayout.astro";
 		const idr = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
 
 		const form = document.getElementById("payment-form") as HTMLFormElement;
+		const classEl = document.getElementById("f-class") as HTMLSelectElement;
 		const studentEl = document.getElementById("f-student") as HTMLSelectElement;
 		const dateEl = document.getElementById("f-date") as HTMLInputElement;
 		const checklist = document.getElementById("invoice-checklist") as HTMLElement;
 		const historyBody = document.getElementById("payments-body") as HTMLElement;
 		const paySummary = document.getElementById("pay-summary") as HTMLElement;
 		const btnPay = document.getElementById("btn-pay") as HTMLButtonElement;
+
+		let allStudents: Array<{ id: string; name: string; class_id: string }> = [];
 
 		const STATE_BADGE: Record<string, string> = {
 			draft: "bg-slate-100 text-slate-600",
@@ -145,15 +152,41 @@ import AppLayout from "../../layouts/AppLayout.astro";
 			btnPay.disabled = checks.length === 0;
 		}
 
-		async function loadStudents() {
-			const { data, error } = await supabase.from("students").select("id,name").order("name");
+		async function loadClasses() {
+			const { data, error } = await supabase.from("classes").select("id,name").order("name");
 			if (error) return alert(error.message);
-			studentEl.innerHTML =
-				'<option value="">Pilih siswa</option>' +
-				(data || []).map((x) => `<option value="${x.id}">${x.name}</option>`).join("");
+			classEl.innerHTML =
+				'<option value="">Semua Kelas</option>' +
+				(data || []).map((x: any) => `<option value="${x.id}">${x.name}</option>`).join("");
 		}
 
-		async function loadUnpaidInvoices(studentId) {
+		async function loadStudents() {
+			const { data, error } = await supabase.from("students").select("id,name,class_id").order("name");
+			if (error) return alert(error.message);
+			allStudents = data || [];
+			filterStudentsByClass();
+		}
+
+		function filterStudentsByClass() {
+			const classId = classEl.value;
+			let filtered = allStudents;
+			if (classId) {
+				filtered = allStudents.filter((s) => s.class_id === classId);
+			}
+			studentEl.disabled = filtered.length === 0;
+			studentEl.innerHTML =
+				'<option value="">Pilih siswa</option>' +
+				filtered.map((x) => `<option value="${x.id}">${x.name}</option>`).join("");
+
+			// Clear invoice checklist when class changes
+			checklist.innerHTML = `<p class="text-sm text-slate-400">Pilih siswa untuk melihat tagihan.</p>`;
+			paySummary.classList.add("hidden");
+			btnPay.disabled = true;
+		}
+
+		classEl.addEventListener("change", filterStudentsByClass);
+
+		async function loadUnpaidInvoices(studentId: string) {
 			if (!studentId) {
 				checklist.innerHTML = `<p class="text-sm text-slate-400">Pilih siswa untuk melihat tagihan.</p>`;
 				paySummary.classList.add("hidden");
@@ -328,6 +361,6 @@ import AppLayout from "../../layouts/AppLayout.astro";
 			await loadHistory();
 		});
 
-		await Promise.all([loadStudents(), loadHistory(), loadRekening()]);
+		await Promise.all([loadClasses(), loadStudents(), loadHistory(), loadRekening()]);
 	</script>
 </AppLayout>
