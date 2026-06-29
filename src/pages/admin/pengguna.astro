@@ -75,6 +75,32 @@ import AppLayout from "../../layouts/AppLayout.astro";
 			</div>
 		</section>
 
+		<!-- Modal Ganti Password -->
+		<div id="modal-pw" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50">
+			<div class="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl mx-4">
+				<h3 class="text-lg font-bold">Ganti Password</h3>
+				<p id="modal-pw-user-name" class="mt-1 text-sm text-slate-500"></p>
+				<input type="hidden" id="modal-pw-user-id" />
+				<div class="mt-4 space-y-3">
+					<div>
+						<label class="block text-xs text-slate-500 mb-1">Password Baru</label>
+						<input id="modal-pw-password" type="password" minlength="8" placeholder="Min. 8 karakter"
+							class="w-full rounded-lg border border-slate-300 px-3 py-2" />
+					</div>
+					<div>
+						<label class="block text-xs text-slate-500 mb-1">Konfirmasi Password</label>
+						<input id="modal-pw-confirm" type="password" minlength="8" placeholder="Ketik ulang password"
+							class="w-full rounded-lg border border-slate-300 px-3 py-2" />
+					</div>
+				</div>
+				<div id="modal-pw-error" class="hidden mt-3 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700"></div>
+				<div class="mt-5 flex gap-2">
+					<button id="modal-pw-save" class="flex-1 rounded-lg bg-rose-600 px-4 py-2 font-semibold text-white">Simpan Password</button>
+					<button id="modal-pw-close" class="flex-1 rounded-lg border border-slate-300 px-4 py-2 font-semibold">Batal</button>
+				</div>
+			</div>
+		</div>
+
 		<!-- Modal Ubah Role -->
 		<div id="modal-role" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50">
 			<div class="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl mx-4">
@@ -161,7 +187,9 @@ import AppLayout from "../../layouts/AppLayout.astro";
 							${u.is_active ? "Aktif" : "Nonaktif"}
 						</span>
 					</td>
-					<td class="px-3 py-2 space-x-2 whitespace-nowrap">
+				<td class="px-3 py-2 space-x-2 whitespace-nowrap">
+						${!isSelf ? `<button data-id="${u.id}" data-userid="${u.user_id}" data-name="${u.full_name || u.email}" data-action="change-password"
+							class="text-rose-600 hover:underline text-xs">Ganti PW</button>` : ""}
 						${!isSelf ? `<button data-id="${u.id}" data-name="${u.full_name || u.email}" data-role="${u.role}" data-action="change-role"
 							class="text-blue-600 hover:underline text-xs">Ubah Role</button>` : ""}
 						${!isSelf ? `<button data-id="${u.id}" data-active="${u.is_active}" data-action="toggle-active"
@@ -225,10 +253,31 @@ import AppLayout from "../../layouts/AppLayout.astro";
 		const modalUserId = document.getElementById("modal-user-id") as HTMLInputElement;
 		const modalRoleSelect = document.getElementById("modal-role-select") as HTMLSelectElement;
 
+		// ─── Modal Ganti Password ────────────────────────────────────────────
+		const modalPw = document.getElementById("modal-pw") as HTMLDivElement;
+		const modalPwName = document.getElementById("modal-pw-user-name")!;
+		const modalPwUserId = document.getElementById("modal-pw-user-id") as HTMLInputElement;
+		const modalPwInput = document.getElementById("modal-pw-password") as HTMLInputElement;
+		const modalPwConfirm = document.getElementById("modal-pw-confirm") as HTMLInputElement;
+		const modalPwError = document.getElementById("modal-pw-error")!;
+		const modalPwSave = document.getElementById("modal-pw-save") as HTMLButtonElement;
+
 		usersBody.addEventListener("click", async (e) => {
 			const btn = (e.target as HTMLElement).closest("button[data-action]") as HTMLButtonElement | null;
 			if (!btn) return;
-			const { id, action, name, role, active } = btn.dataset;
+			const { id, action, name, role, active, userid } = btn.dataset;
+
+			if (action === "change-password") {
+				modalPwName.textContent = name || "";
+				modalPwUserId.value = userid || "";
+				modalPwInput.value = "";
+				modalPwConfirm.value = "";
+				modalPwError.classList.add("hidden");
+				modalPw.classList.remove("hidden");
+				modalPw.classList.add("flex");
+				modalPwInput.focus();
+				return;
+			}
 
 			if (action === "change-role") {
 				modalName.textContent = name || "";
@@ -283,6 +332,73 @@ import AppLayout from "../../layouts/AppLayout.astro";
 			if (e.target === modal) {
 				modal.classList.add("hidden");
 				modal.classList.remove("flex");
+			}
+		});
+
+		// ─── Modal Ganti Password handlers ───────────────────────────────────
+		modalPwSave.addEventListener("click", async () => {
+			modalPwError.classList.add("hidden");
+			const targetUserId = modalPwUserId.value;
+			const newPw = modalPwInput.value;
+			const confirmPw = modalPwConfirm.value;
+
+			if (!targetUserId) {
+				modalPwError.textContent = "User tidak valid.";
+				modalPwError.classList.remove("hidden");
+				return;
+			}
+			if (newPw.length < 8) {
+				modalPwError.textContent = "Password minimal 8 karakter.";
+				modalPwError.classList.remove("hidden");
+				return;
+			}
+			if (newPw !== confirmPw) {
+				modalPwError.textContent = "Konfirmasi password tidak cocok.";
+				modalPwError.classList.remove("hidden");
+				return;
+			}
+
+			modalPwSave.disabled = true;
+			modalPwSave.textContent = "Menyimpan...";
+
+			try {
+				const token = session?.access_token;
+				const res = await fetch("/api/admin/change-password", {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						"Authorization": `Bearer ${token}`,
+					},
+					body: JSON.stringify({ target_user_id: targetUserId, new_password: newPw }),
+				});
+
+				const result = await res.json();
+				if (!res.ok) {
+					modalPwError.textContent = result.error || "Gagal mengganti password.";
+					modalPwError.classList.remove("hidden");
+				} else {
+					alert(result.message || "Password berhasil diganti.");
+					modalPw.classList.add("hidden");
+					modalPw.classList.remove("flex");
+				}
+			} catch (err: any) {
+				modalPwError.textContent = err.message || "Terjadi kesalahan.";
+				modalPwError.classList.remove("hidden");
+			} finally {
+				modalPwSave.disabled = false;
+				modalPwSave.textContent = "Simpan Password";
+			}
+		});
+
+		document.getElementById("modal-pw-close")?.addEventListener("click", () => {
+			modalPw.classList.add("hidden");
+			modalPw.classList.remove("flex");
+		});
+
+		modalPw?.addEventListener("click", (e) => {
+			if (e.target === modalPw) {
+				modalPw.classList.add("hidden");
+				modalPw.classList.remove("flex");
 			}
 		});
 
